@@ -1,0 +1,357 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard | MemReport{% endblock %}
+
+{% block content %}
+<div class="app-layout">
+  <!-- Top Navigation Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="header-logo">
+        <svg class="w-6 h-6 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        <span class="font-bold text-lg tracking-tight">MemReport</span>
+      </div>
+
+      <!-- View Switcher Tabs -->
+      <nav class="view-switcher">
+        <button id="view-btn-report" class="view-tab active" onclick="switchMainView('report')">
+          <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          Berichte
+        </button>
+        <button id="view-btn-map" class="view-tab" onclick="switchMainView('map')">
+          <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+          </svg>
+          Kartenansicht
+        </button>
+      </nav>
+    </div>
+
+    <div class="header-right">
+      <button class="btn btn-secondary btn-sm" onclick="openShareModal()">
+        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
+        </svg>
+        Freigaben
+      </button>
+
+      <div class="user-menu">
+        <span class="user-badge">
+          <span class="user-avatar">{{ username[0]|upper }}</span>
+          <span class="text-sm font-medium">{{ username }}</span>
+        </span>
+        <button class="btn btn-ghost btn-icon" title="Abmelden" onclick="logout()">
+          <svg class="w-4 h-4 text-slate-400 hover:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Body Grid: Sidebar + Workspace -->
+  <div class="app-body">
+    <!-- Sidebar -->
+    <aside class="app-sidebar">
+      <!-- Calendar Widget Card -->
+      <div class="sidebar-card">
+        <div class="calendar-header">
+          <button class="btn-calendar-nav" onclick="changeMonth(-1)" title="Vorheriger Monat">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <span id="calendar-month-year" class="calendar-title"></span>
+          <button class="btn-calendar-nav" onclick="changeMonth(1)" title="Nächster Monat">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+
+        <div class="calendar-weekdays">
+          <span>Mo</span><span>Di</span><span>Mi</span><span>Do</span><span>Fr</span><span>Sa</span><span>So</span>
+        </div>
+
+        <div id="calendar-grid" class="calendar-grid">
+          <!-- Dynamically populated days -->
+        </div>
+
+        <div class="calendar-footer">
+          <button class="btn-link text-xs" onclick="jumpToToday()">Heute auswählen</button>
+          <div class="calendar-legend">
+            <span class="legend-item"><span class="legend-dot report-dot"></span> Bericht</span>
+            <span class="legend-item"><span class="legend-dot gps-dot"></span> GPS</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Reports List Card -->
+      <div class="sidebar-card flex-1 flex flex-col min-h-0">
+        <div class="sidebar-card-header">
+          <h3 class="text-xs font-semibold text-muted uppercase tracking-wider">Vorhandene Berichte</h3>
+          <span id="reports-count" class="badge-pill">0</span>
+        </div>
+        <div class="reports-search-box">
+          <input type="text" id="report-search-input" placeholder="Nach Datum filtern..." oninput="filterReportList()" />
+        </div>
+        <div id="reports-list" class="reports-list custom-scroll">
+          <!-- Dynamically filled list -->
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="app-main">
+      <!-- Report View Pane -->
+      <div id="pane-report" class="main-pane active">
+        <!-- Top Action Bar for Current Date -->
+        <div class="report-toolbar">
+          <div class="toolbar-date-group">
+            <h2 id="current-date-heading" class="current-date-title">Lade...</h2>
+            <div id="location-badge-container" class="location-badge" onclick="openLocationModal()" title="GPS-Standort bearbeiten">
+              <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              <span id="location-badge-text">Kein GPS-Standort</span>
+            </div>
+          </div>
+
+          <div class="toolbar-actions" id="report-actions">
+            <!-- View Mode buttons -->
+            <div id="view-mode-buttons" class="flex gap-2">
+              <button class="btn btn-secondary btn-sm" onclick="toggleRawSource()" id="btn-toggle-raw" title="Quelltext / Vorschau">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                </svg>
+                <span id="raw-toggle-text">Quelltext</span>
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="enterEditMode()">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+                Bearbeiten
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="openShareCurrentDateModal()">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
+                </svg>
+                Teilen
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="downloadReport()">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+                Export
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="deleteCurrentReport()" title="Bericht löschen">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Edit Mode buttons -->
+            <div id="edit-mode-buttons" class="hidden flex gap-2">
+              <button class="btn btn-secondary btn-sm" onclick="cancelEditMode()">Abbrechen</button>
+              <button class="btn btn-primary btn-sm" onclick="saveReportEdit()">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+                Speichern
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Viewer Container -->
+        <div class="report-content-wrapper">
+          <!-- Rendered View -->
+          <div id="report-rendered-view" class="report-rendered-container custom-scroll">
+            <div id="rendered-content" class="markdown-body"></div>
+          </div>
+
+          <!-- Raw Source View -->
+          <div id="report-raw-view" class="report-raw-container hidden custom-scroll">
+            <pre><code id="raw-content-code" class="hljs"></code></pre>
+          </div>
+
+          <!-- In-Viewer Editor -->
+          <div id="report-editor-view" class="report-editor-container hidden">
+            <div class="editor-quick-bar">
+              <button type="button" class="btn-tool" onclick="insertSnippet('## ')">H2</button>
+              <button type="button" class="btn-tool" onclick="insertSnippet('### ')">H3</button>
+              <button type="button" class="btn-tool" onclick="insertSnippet('**', '**')">Fett</button>
+              <button type="button" class="btn-tool" onclick="insertSnippet('*', '*')">Kursiv</button>
+              <button type="button" class="btn-tool" onclick="insertSnippet('```python\n', '\n```')">Code</button>
+              <button type="button" class="btn-tool" onclick="insertSnippet('$$', '$$')">LaTeX</button>
+              <button type="button" class="btn-tool" onclick="insertSnippet('![Bild](data:image/png;base64,...)')">Base64 Bild</button>
+              <button type="button" class="btn-tool" onclick="insertSnippet('<div class=\'alert\'>\n', '\n</div>')">HTML Box</button>
+            </div>
+            <textarea id="report-editor-textarea" class="editor-textarea" placeholder="Bericht hier verfassen..."></textarea>
+          </div>
+
+          <!-- Empty State (No report for this day) -->
+          <div id="report-empty-state" class="report-empty-container hidden">
+            <div class="empty-state-card">
+              <div class="empty-icon-circle">
+                <svg class="w-10 h-10 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+              </div>
+              <h3 id="empty-title" class="text-xl font-bold mb-2">Kein Bericht vorhanden</h3>
+              <p class="text-sm text-muted mb-6">Für dieses Datum wurde noch kein Bericht hinterlegt.</p>
+              <button class="btn btn-primary" onclick="createNewReportForDate()">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Bericht für diesen Tag anlegen
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Map View Pane -->
+      <div id="pane-map" class="main-pane">
+        <div class="map-toolbar">
+          <div class="map-info">
+            <h2 class="text-lg font-bold">Standort-Übersicht (GPS)</h2>
+            <p class="text-xs text-muted">Klicke auf eine Markierung, um den Bericht des Tages zu öffnen.</p>
+          </div>
+          <div class="map-actions">
+            <button class="btn btn-secondary btn-sm" onclick="fitMapBounds()">
+              <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+              Alle anzeigen
+            </button>
+          </div>
+        </div>
+        <div id="leaflet-map-container" class="leaflet-map"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ================= MODALS ================= -->
+
+<!-- Share Modal -->
+<div id="modal-share" class="modal-backdrop hidden">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 class="modal-title">Berichte freigeben</h3>
+      <button class="btn-close" onclick="closeShareModal()">&times;</button>
+    </div>
+
+    <!-- Modal Tabs -->
+    <div class="modal-tabs">
+      <button class="modal-tab active" id="tab-share-create" onclick="switchShareTab('create')">Neuen Link erstellen</button>
+      <button class="modal-tab" id="tab-share-list" onclick="switchShareTab('list')">Aktive Links verwalten</button>
+    </div>
+
+    <div id="share-view-create" class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Titel / Notiz (optional)</label>
+        <input type="text" id="share-title" class="form-input" placeholder="z.B. Projektbericht KW 38" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Gültigkeit</label>
+        <select id="share-expiry" class="form-input">
+          <option value="7">7 Tage</option>
+          <option value="1">1 Tag (24 Stunden)</option>
+          <option value="30">30 Tage</option>
+          <option value="0">Unbegrenzt gültig</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <div class="flex justify-between items-center mb-1.5">
+          <label class="form-label mb-0">Tage auswählen</label>
+          <div class="flex gap-2">
+            <button type="button" class="btn-link text-xs" onclick="selectCurrentDateOnly()">Nur aktuellen Tag</button>
+            <button type="button" class="btn-link text-xs" onclick="selectAllDates()">Alle auswählen</button>
+          </div>
+        </div>
+        <div id="share-dates-checklist" class="dates-checklist custom-scroll">
+          <!-- Dynamically populated checkboxes -->
+        </div>
+      </div>
+
+      <button type="button" class="btn btn-primary w-full mt-3" onclick="generateShareLink()">
+        Freigabe-Link generieren
+      </button>
+
+      <!-- Result Link Box -->
+      <div id="share-result-box" class="share-result-box hidden">
+        <p class="text-xs text-muted mb-1">Öffentlicher Link (ohne Passwort aufrufbar):</p>
+        <div class="flex gap-2">
+          <input type="text" id="share-url-input" class="form-input text-xs font-mono" readonly />
+          <button class="btn btn-secondary btn-sm" onclick="copyShareUrl()" id="btn-copy-share">Kopieren</button>
+          <a id="share-open-link" href="#" target="_blank" class="btn btn-secondary btn-sm" title="Im neuen Tab öffnen">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Shares List -->
+    <div id="share-view-list" class="modal-body hidden">
+      <div id="active-shares-container" class="active-shares-list custom-scroll">
+        <!-- Dynamically populated active shares -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- GPS Location Modal -->
+<div id="modal-location" class="modal-backdrop hidden">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 class="modal-title">GPS-Standort für <span id="location-modal-date" class="text-primary font-mono"></span></h3>
+      <button class="btn-close" onclick="closeLocationModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Breitengrad (Latitude)</label>
+        <input type="number" step="any" id="loc-lat" class="form-input" placeholder="z.B. 52.5200" required />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Längengrad (Longitude)</label>
+        <input type="number" step="any" id="loc-lon" class="form-input" placeholder="z.B. 13.4050" required />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Ortsbezeichnung (optional)</label>
+        <input type="text" id="loc-name" class="form-input" placeholder="z.B. Berlin Campus, Labor 2" />
+      </div>
+
+      <div class="flex gap-2 my-2">
+        <button type="button" class="btn btn-secondary btn-sm flex-1" onclick="useCurrentGeolocation()">
+          <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          Aktuelle GPS ermitteln
+        </button>
+      </div>
+
+      <div class="modal-actions mt-4 flex justify-between">
+        <button type="button" class="btn btn-danger btn-sm" id="btn-remove-location" onclick="deleteReportLocation()">
+          Standort löschen
+        </button>
+        <div class="flex gap-2">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeLocationModal()">Abbrechen</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="saveReportLocation()">Speichern</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/app.js"></script>
+{% endblock %}

@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}Anmelden | MemReport{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="auth-logo">
+        <svg class="w-8 h-8 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        <span class="auth-brand">MemReport</span>
+      </div>
+      <p class="auth-subtitle">Dein zentraler Hub für tägliche Berichte, Kalender & Maps</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="auth-tabs">
+      <button type="button" class="tab-btn active" id="tab-login" onclick="switchAuthTab('login')">Anmelden</button>
+      <button type="button" class="tab-btn" id="tab-register" onclick="switchAuthTab('register')">Registrieren</button>
+    </div>
+
+    <!-- Alert message -->
+    <div id="auth-alert" class="alert hidden" role="alert"></div>
+
+    <!-- Form -->
+    <form id="auth-form" onsubmit="handleAuthSubmit(event)">
+      <div class="form-group">
+        <label for="username" class="form-label">Benutzername</label>
+        <input
+          type="text"
+          id="username"
+          name="username"
+          class="form-input"
+          placeholder="z.B. admin"
+          required
+          autocomplete="username"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="password" class="form-label">Passwort</label>
+        <input
+          type="password"
+          id="password"
+          name="password"
+          class="form-input"
+          placeholder="••••••••"
+          required
+          autocomplete="current-password"
+        />
+      </div>
+
+      <button type="submit" id="submit-btn" class="btn btn-primary w-full mt-4">
+        <span id="submit-text">Anmelden</span>
+        <svg class="btn-spinner hidden" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </button>
+    </form>
+
+    <div class="auth-footer">
+      <p class="text-xs text-muted">
+        Standard-Admin: <code class="code-badge">admin</code> / <code class="code-badge">admin123</code>
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  let currentTab = 'login';
+
+  function switchAuthTab(tab) {
+    currentTab = tab;
+    const loginTab = document.getElementById('tab-login');
+    const registerTab = document.getElementById('tab-register');
+    const submitText = document.getElementById('submit-text');
+    const alertBox = document.getElementById('auth-alert');
+    alertBox.classList.add('hidden');
+
+    if (tab === 'login') {
+      loginTab.classList.add('active');
+      registerTab.classList.remove('active');
+      submitText.textContent = 'Anmelden';
+    } else {
+      registerTab.classList.add('active');
+      loginTab.classList.remove('active');
+      submitText.textContent = 'Konto erstellen';
+    }
+  }
+
+  async function handleAuthSubmit(e) {
+    e.preventDefault();
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const alertBox = document.getElementById('auth-alert');
+    const submitBtn = document.getElementById('submit-btn');
+
+    alertBox.classList.add('hidden');
+    submitBtn.disabled = true;
+
+    const endpoint = currentTab === 'login' ? '/api/auth/login' : '/api/auth/register';
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Fehler bei der Authentifizierung');
+      }
+
+      if (currentTab === 'register') {
+        // Auto-login after registration
+        const loginRes = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        if (!loginRes.ok) throw new Error('Automatische Anmeldung fehlgeschlagen');
+      }
+
+      // Successful login/registration -> redirect to viewer
+      window.location.href = '/viewer';
+    } catch (err) {
+      alertBox.textContent = err.message;
+      alertBox.className = 'alert alert-error';
+      alertBox.classList.remove('hidden');
+    } finally {
+      submitBtn.disabled = false;
+    }
+  }
+</script>
+{% endblock %}

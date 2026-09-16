@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} | MemReport Share{% endblock %}
+
+{% block content %}
+<div class="share-public-layout">
+  <!-- Header -->
+  <header class="share-header">
+    <div class="share-header-left">
+      <div class="header-logo">
+        <svg class="w-6 h-6 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        <span class="font-bold text-base tracking-tight text-slate-200">MemReport</span>
+      </div>
+      <span class="share-title-tag">{{ title }}</span>
+    </div>
+
+    <div class="share-header-right">
+      <div class="view-switcher" id="share-view-switcher">
+        <button class="view-tab active" id="tab-share-report" onclick="switchSharePublicView('report')">
+          <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          Bericht
+        </button>
+        <button class="view-tab" id="tab-share-map" onclick="switchSharePublicView('map')">
+          <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+          Karte
+        </button>
+      </div>
+
+      <button class="btn btn-secondary btn-sm" onclick="downloadCurrentSharedReport()">
+        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Download
+      </button>
+    </div>
+  </header>
+
+  <!-- Date Navigation Bar (if multiple dates) -->
+  <div class="share-date-nav custom-scroll">
+    <span class="text-xs font-semibold text-muted uppercase tracking-wider mr-2">Verfügbare Tage:</span>
+    <div id="share-date-pills" class="flex gap-2">
+      <!-- Dynamically filled pills for each shared date -->
+    </div>
+  </div>
+
+  <!-- Content Container -->
+  <main class="share-main-container custom-scroll">
+    <!-- Report View -->
+    <div id="share-report-pane" class="share-pane active">
+      <div class="share-report-card">
+        <div class="report-meta-header mb-6 pb-4 border-b border-surface-700">
+          <h1 id="share-report-date-title" class="text-2xl font-bold mb-2"></h1>
+          <div id="share-location-info" class="flex items-center text-xs text-muted">
+            <svg class="w-4 h-4 mr-1 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span id="share-location-text"></span>
+          </div>
+        </div>
+
+        <div id="share-rendered-content" class="markdown-body">
+          <!-- Rendered content with Markdown, HTML, KaTeX and Base64 images -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Map View -->
+    <div id="share-map-pane" class="share-pane">
+      <div id="share-leaflet-map" class="share-leaflet-map"></div>
+    </div>
+  </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const SHARE_TOKEN = "{{ token }}";
+  let sharedData = null;
+  let currentSelectedDate = null;
+  let shareMap = null;
+  let shareMarkersLayer = null;
+
+  async function loadSharedReport() {
+    try {
+      const res = await fetch(`/api/public/shares/${SHARE_TOKEN}`);
+      if (!res.ok) throw new Error('Bericht konnte nicht geladen werden');
+      sharedData = await res.json();
+
+      const dates = sharedData.dates;
+      if (!dates || dates.length === 0) return;
+
+      renderDatePills(dates);
+      selectSharedDate(dates[0]);
+    } catch (err) {
+      document.getElementById('share-rendered-content').innerHTML = `
+        <div class="alert alert-error">Fehler beim Laden des Berichts: ${err.message}</div>
+      `;
+    }
+  }
+
+  function renderDatePills(dates) {
+    const pillsContainer = document.getElementById('share-date-pills');
+    pillsContainer.innerHTML = '';
+
+    dates.forEach(d => {
+      const btn = document.createElement('button');
+      btn.className = `date-pill ${d === currentSelectedDate ? 'active' : ''}`;
+      btn.id = `pill-${d}`;
+      btn.textContent = d;
+      btn.onclick = () => selectSharedDate(d);
+      pillsContainer.appendChild(btn);
+    });
+  }
+
+  function selectSharedDate(date) {
+    currentSelectedDate = date;
+
+    // Update active pill
+    document.querySelectorAll('.date-pill').forEach(el => el.classList.remove('active'));
+    const activePill = document.getElementById(`pill-${date}`);
+    if (activePill) activePill.classList.add('active');
+
+    const report = sharedData.reports[date];
+    const titleEl = document.getElementById('share-report-date-title');
+    const locInfo = document.getElementById('share-location-info');
+    const locText = document.getElementById('share-location-text');
+    const contentEl = document.getElementById('share-rendered-content');
+
+    if (!report) {
+      titleEl.textContent = date;
+      locInfo.classList.add('hidden');
+      contentEl.innerHTML = '<p class="text-muted">Kein Inhalt für dieses Datum verfügbar.</p>';
+      return;
+    }
+
+    titleEl.textContent = `Bericht für ${date}`;
+
+    if (report.latitude && report.longitude) {
+      locInfo.classList.remove('hidden');
+      locText.textContent = `${report.location_name ? report.location_name + ' — ' : ''}GPS: ${report.latitude.toFixed(4)}, ${report.longitude.toFixed(4)}`;
+    } else {
+      locInfo.classList.add('hidden');
+    }
+
+    renderContent(report.content, contentEl);
+  }
+
+  function renderContent(rawText, container) {
+    if (!rawText) {
+      container.innerHTML = '<p class="text-muted">Dieser Bericht ist leer.</p>';
+      return;
+    }
+
+    // Parse Markdown (mixed HTML allowed)
+    marked.setOptions({
+      breaks: true,
+      gfm: true,
+      headerIds: true,
+    });
+
+    let html = marked.parse(rawText);
+    container.innerHTML = html;
+
+    // Syntax highlight code blocks
+    container.querySelectorAll('pre code').forEach((block) => {
+      hljs.highlightElement(block);
+    });
+
+    // KaTeX math rendering
+    if (window.renderMathInElement) {
+      renderMathInElement(container, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '$', right: '$', display: false },
+          { left: '\\(', right: '\\)', display: false },
+          { left: '\\[', right: '\\]', display: true }
+        ],
+        throwOnError: false
+      });
+    }
+  }
+
+  function switchSharePublicView(view) {
+    const reportTab = document.getElementById('tab-share-report');
+    const mapTab = document.getElementById('tab-share-map');
+    const reportPane = document.getElementById('share-report-pane');
+    const mapPane = document.getElementById('share-map-pane');
+
+    if (view === 'report') {
+      reportTab.classList.add('active');
+      mapTab.classList.remove('active');
+      reportPane.classList.add('active');
+      mapPane.classList.remove('active');
+    } else {
+      mapTab.classList.add('active');
+      reportTab.classList.remove('active');
+      mapPane.classList.add('active');
+      reportPane.classList.remove('active');
+      initShareMap();
+    }
+  }
+
+  function initShareMap() {
+    if (!shareMap) {
+      shareMap = L.map('share-leaflet-map').setView([51.1657, 10.4515], 6);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+        maxZoom: 19
+      }).addTo(shareMap);
+
+      shareMarkersLayer = L.layerGroup().addTo(shareMap);
+    }
+
+    setTimeout(() => {
+      shareMap.invalidateSize();
+      renderShareMapMarkers();
+    }, 200);
+  }
+
+  function renderShareMapMarkers() {
+    if (!shareMarkersLayer) return;
+    shareMarkersLayer.clearLayers();
+
+    const bounds = [];
+
+    Object.entries(sharedData.reports).forEach(([date, rep]) => {
+      if (rep.latitude && rep.longitude) {
+        bounds.push([rep.latitude, rep.longitude]);
+
+        const customIcon = L.divIcon({
+          className: 'custom-map-bubble',
+          html: `<div class="map-bubble-inner"><span class="bubble-dot"></span><span class="bubble-date">${date.slice(5)}</span></div>`,
+          iconSize: [80, 32],
+          iconAnchor: [40, 16]
+        });
+
+        const marker = L.marker([rep.latitude, rep.longitude], { icon: customIcon });
+        marker.bindPopup(`
+          <div class="map-popup-card">
+            <h4 class="font-bold text-sm mb-1">${date}</h4>
+            <p class="text-xs text-muted mb-2">${rep.location_name || 'Standort'}</p>
+            <button class="btn btn-primary btn-xs w-full" onclick="selectAndShowSharedReport('${date}')">Bericht ansehen</button>
+          </div>
+        `);
+        shareMarkersLayer.addLayer(marker);
+      }
+    });
+
+    if (bounds.length > 0) {
+      shareMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+    }
+  }
+
+  function selectAndShowSharedReport(date) {
+    switchSharePublicView('report');
+    selectSharedDate(date);
+  }
+
+  function downloadCurrentSharedReport() {
+    if (!currentSelectedDate || !sharedData.reports[currentSelectedDate]) return;
+    const report = sharedData.reports[currentSelectedDate];
+    const blob = new Blob([report.content], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `report-${currentSelectedDate}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  window.addEventListener('DOMContentLoaded', loadSharedReport);
+</script>
+{% endblock %}
