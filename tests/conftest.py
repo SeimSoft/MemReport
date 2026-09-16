@@ -26,9 +26,9 @@ async def prepare_database():
     if TEST_DB_PATH.exists():
         TEST_DB_PATH.unlink()
     await init_db()
-    # Create test user
+    # Create test user (admin)
     pw_hash = hash_password("testpass123")
-    await create_user("testuser", pw_hash)
+    await create_user("testuser", pw_hash, is_admin=True)
     yield
     if TEST_DB_PATH.exists():
         TEST_DB_PATH.unlink()

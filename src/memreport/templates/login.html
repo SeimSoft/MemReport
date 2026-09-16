@@ -19,12 +19,6 @@
       <p class="auth-subtitle">Dein zentraler Hub für tägliche Berichte, Kalender & Maps</p>
     </div>
 
-    <!-- Tabs -->
-    <div class="auth-tabs">
-      <button type="button" class="tab-btn active" id="tab-login" onclick="switchAuthTab('login')">Anmelden</button>
-      <button type="button" class="tab-btn" id="tab-register" onclick="switchAuthTab('register')">Registrieren</button>
-    </div>
-
     <!-- Alert message -->
     <div id="auth-alert" class="alert hidden" role="alert"></div>
 
@@ -66,7 +60,10 @@
     </form>
 
     <div class="auth-footer">
-      <p class="text-xs text-muted">
+      <p class="text-xs text-muted mb-1">
+        🔒 Konten werden ausschließlich durch den Administrator vergeben.
+      </p>
+      <p class="text-xs text-subtle">
         Standard-Admin: <code class="code-badge">admin</code> / <code class="code-badge">admin123</code>
       </p>
     </div>
@@ -76,27 +73,6 @@
 
 {% block scripts %}
 <script>
-  let currentTab = 'login';
-
-  function switchAuthTab(tab) {
-    currentTab = tab;
-    const loginTab = document.getElementById('tab-login');
-    const registerTab = document.getElementById('tab-register');
-    const submitText = document.getElementById('submit-text');
-    const alertBox = document.getElementById('auth-alert');
-    alertBox.classList.add('hidden');
-
-    if (tab === 'login') {
-      loginTab.classList.add('active');
-      registerTab.classList.remove('active');
-      submitText.textContent = 'Anmelden';
-    } else {
-      registerTab.classList.add('active');
-      loginTab.classList.remove('active');
-      submitText.textContent = 'Konto erstellen';
-    }
-  }
-
   async function handleAuthSubmit(e) {
     e.preventDefault();
     const username = document.getElementById('username').value.trim();
@@ -107,10 +83,8 @@
     alertBox.classList.add('hidden');
     submitBtn.disabled = true;
 
-    const endpoint = currentTab === 'login' ? '/api/auth/login' : '/api/auth/register';
-
     try {
-      const response = await fetch(endpoint, {
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
@@ -122,17 +96,7 @@
         throw new Error(data.detail || 'Fehler bei der Authentifizierung');
       }
 
-      if (currentTab === 'register') {
-        // Auto-login after registration
-        const loginRes = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password })
-        });
-        if (!loginRes.ok) throw new Error('Automatische Anmeldung fehlgeschlagen');
-      }
-
-      // Successful login/registration -> redirect to viewer
+      // Successful login -> redirect to viewer
       window.location.href = '/viewer';
     } catch (err) {
       alertBox.textContent = err.message;

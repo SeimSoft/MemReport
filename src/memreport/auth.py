@@ -95,3 +95,13 @@ async def get_current_user_optional(
         return await get_current_user(request, auth_header)
     except HTTPException:
         return None
+
+
+async def require_admin(current_user: dict = Depends(get_current_user)) -> dict:
+    is_admin = bool(current_user.get("is_admin")) or (current_user["username"] == settings.default_admin_user)
+    if not is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Nur Administratoren können neue Benutzer anlegen.",
+        )
+    return current_user

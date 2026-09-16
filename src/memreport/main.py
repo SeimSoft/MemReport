@@ -24,8 +24,13 @@ async def lifespan(app: FastAPI):
     admin_user = await get_user_by_username(settings.default_admin_user)
     if not admin_user:
         hashed = hash_password(settings.default_admin_password)
-        await create_user(settings.default_admin_user, hashed)
-        print(f"[MemReport] Initialized default user '{settings.default_admin_user}'")
+        await create_user(settings.default_admin_user, hashed, is_admin=True)
+        print(f"[MemReport] Initialized default admin user '{settings.default_admin_user}'")
+    elif not admin_user.get("is_admin"):
+        from memreport.database import get_db
+        async with get_db() as db:
+            await db.execute("UPDATE users SET is_admin = 1 WHERE username = ?", (settings.default_admin_user,))
+            await db.commit()
 
     yield
 

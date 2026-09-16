@@ -19,10 +19,18 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=4)
+    is_admin: Optional[bool] = False
+
+
+class UserUpdate(BaseModel):
+    current_password: str = Field(..., min_length=1)
+    new_username: Optional[str] = Field(None, min_length=2, max_length=50)
+    new_password: Optional[str] = Field(None, min_length=4)
 
 
 class UserResponse(UserBase):
     id: int
+    is_admin: bool = False
     created_at: str
 
 

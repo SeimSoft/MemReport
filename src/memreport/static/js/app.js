@@ -102,6 +102,23 @@ function filterReportList() {
 
 // --- Calendar Logic ---
 
+function populateYearSelect(currentYear) {
+  const select = document.getElementById('calendar-year-select');
+  if (!select) return;
+
+  const startYear = Math.min(currentYear - 8, 2015);
+  const endYear = Math.max(currentYear + 8, 2035);
+
+  select.innerHTML = '';
+  for (let y = startYear; y <= endYear; y++) {
+    const opt = document.createElement('option');
+    opt.value = y;
+    opt.textContent = y;
+    if (y === currentYear) opt.selected = true;
+    select.appendChild(opt);
+  }
+}
+
 function renderCalendar() {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -110,7 +127,12 @@ function renderCalendar() {
     'Januar', 'Februar', 'März', 'April', 'Mai', 'Juni',
     'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'
   ];
-  document.getElementById('calendar-month-year').textContent = `${monthNames[month]} ${year}`;
+
+  const monthEl = document.getElementById('calendar-month-name');
+  if (monthEl) {
+    monthEl.textContent = monthNames[month];
+  }
+  populateYearSelect(year);
 
   const firstDayIndex = (new Date(year, month, 1).getDay() + 6) % 7; // Monday = 0
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -167,9 +189,39 @@ function changeMonth(delta) {
   renderCalendar();
 }
 
+function changeYear(delta) {
+  currentDate.setFullYear(currentDate.getFullYear() + delta);
+  renderCalendar();
+}
+
+function onYearSelectChange(newYear) {
+  currentDate.setFullYear(parseInt(newYear, 10));
+  renderCalendar();
+}
+
 function jumpToToday() {
   currentDate = new Date();
   selectDate(formatDate(currentDate));
+}
+
+// --- Mobile Sidebar Controls ---
+
+function toggleMobileSidebar() {
+  const sidebar = document.getElementById('app-sidebar');
+  const overlay = document.getElementById('mobile-sidebar-overlay');
+  const isOpen = sidebar.classList.toggle('mobile-open');
+  if (isOpen) {
+    overlay.classList.remove('hidden');
+  } else {
+    overlay.classList.add('hidden');
+  }
+}
+
+function closeMobileSidebar() {
+  const sidebar = document.getElementById('app-sidebar');
+  const overlay = document.getElementById('mobile-sidebar-overlay');
+  if (sidebar) sidebar.classList.remove('mobile-open');
+  if (overlay) overlay.classList.add('hidden');
 }
 
 async function selectDate(dateStr) {
@@ -178,6 +230,7 @@ async function selectDate(dateStr) {
   currentDate = new Date(y, m - 1, d);
 
   renderCalendar();
+  closeMobileSidebar();
 
   // Update active item in sidebar
   document.querySelectorAll('.report-item').forEach(el => el.classList.remove('active'));
@@ -761,11 +814,147 @@ async function revokeShare(id) {
   }
 }
 
+// --- Profile & Security Modal ---
+
+function openProfileModal() {
+  const currentUsername = document.getElementById('header-username').textContent.trim();
+  document.getElementById('profile-username').value = currentUsername;
+  document.getElementById('profile-new-password').value = '';
+  document.getElementById('profile-confirm-password').value = '';
+  document.getElementById('profile-current-password').value = '';
+
+  const alertBox = document.getElementById('profile-alert');
+  alertBox.classList.add('hidden');
+  alertBox.textContent = '';
+
+  document.getElementById('modal-profile').classList.remove('hidden');
+}
+
+function closeProfileModal() {
+  document.getElementById('modal-profile').classList.add('hidden');
+}
+
+async function handleProfileSubmit(e) {
+  e.preventDefault();
+
+  const newUsername = document.getElementById('profile-username').value.trim();
+  const newPassword = document.getElementById('profile-new-password').value;
+  const confirmPassword = document.getElementById('profile-confirm-password').value;
+  const currentPassword = document.getElementById('profile-current-password').value;
+
+  const alertBox = document.getElementById('profile-alert');
+  const saveBtn = document.getElementById('btn-save-profile');
+
+  alertBox.classList.add('hidden');
+
+  if (newPassword && newPassword !== confirmPassword) {
+    alertBox.className = 'alert alert-error';
+    alertBox.textContent = 'Die neuen Passwörter stimmen nicht überein.';
+    alertBox.classList.remove('hidden');
+    return;
+  }
+
+  saveBtn.disabled = true;
+
+  const payload = {
+    current_password: currentPassword,
+    new_username: newUsername || null,
+    new_password: newPassword || null,
+  };
+
+  try {
+    const res = await fetch('/api/auth/me', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.detail || 'Aktualisierung fehlgeschlagen.');
+    }
+
+    // Update UI with new username
+    document.getElementById('header-username').textContent = data.username;
+    const avatarEl = document.getElementById('header-user-avatar');
+    if (avatarEl && data.username.length > 0) {
+      avatarEl.textContent = data.username[0].toUpperCase();
+    }
+
+    alertBox.className = 'alert';
+    alertBox.style.backgroundColor = 'rgba(16, 185, 129, 0.15)';
+    alertBox.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+    alertBox.style.color = '#6ee7b7';
+    alertBox.textContent = 'Profil erfolgreich aktualisiert!';
+    alertBox.classList.remove('hidden');
+
+    setTimeout(() => {
+      closeProfileModal();
+    }, 1200);
+  } catch (err) {
+    alertBox.className = 'alert alert-error';
+    alertBox.textContent = err.message;
+    alertBox.classList.remove('hidden');
+  } finally {
+    saveBtn.disabled = false;
+  }
+}
+
+async function handleAdminCreateUser(e) {
+  e.preventDefault();
+  const usernameInput = document.getElementById('admin-new-username');
+  const passwordInput = document.getElementById('admin-new-password');
+  const isAdminInput = document.getElementById('admin-new-is-admin');
+  const alertBox = document.getElementById('admin-create-alert');
+  const btn = document.getElementById('btn-admin-create-user');
+
+  const username = usernameInput.value.trim();
+  const password = passwordInput.value;
+  const is_admin = isAdminInput.checked;
+
+  alertBox.classList.add('hidden');
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, is_admin })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || 'Fehler beim Erstellen des Benutzers.');
+    }
+
+    alertBox.className = 'alert';
+    alertBox.style.backgroundColor = 'rgba(16, 185, 129, 0.15)';
+    alertBox.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+    alertBox.style.color = '#6ee7b7';
+    alertBox.textContent = `Benutzer "${data.username}" wurde erfolgreich erstellt!`;
+    alertBox.classList.remove('hidden');
+
+    usernameInput.value = '';
+    passwordInput.value = '';
+    isAdminInput.checked = false;
+  } catch (err) {
+    alertBox.className = 'alert alert-error';
+    alertBox.textContent = err.message;
+    alertBox.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 // --- Auth Logout ---
 
 async function logout() {
   try {
     await fetch('/api/auth/logout', { method: 'POST' });
-  } catch (e) {}
-  window.location.href = '/login';
+  } catch (e) {
+    console.error('Logout error:', e);
+  }
+  // Clear any potential cookies and navigate to /login
+  window.location.href = '/logout';
 }

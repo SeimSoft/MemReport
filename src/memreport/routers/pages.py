@@ -38,6 +38,13 @@ async def login_page(
     )
 
 
+@router.get("/logout")
+async def logout_page():
+    res = RedirectResponse(url="/login", status_code=302)
+    res.delete_cookie(key="access_token", path="/")
+    return res
+
+
 @router.get("/viewer", response_class=HTMLResponse)
 async def viewer_page(
     request: Request,
@@ -45,12 +52,15 @@ async def viewer_page(
 ):
     if not current_user:
         return RedirectResponse(url="/login", status_code=302)
+    from memreport.config import settings
+    is_admin = bool(current_user.get("is_admin")) or (current_user["username"] == settings.default_admin_user)
     return templates.TemplateResponse(
         request=request,
         name="viewer.html",
         context={
             "username": current_user["username"],
             "user_id": current_user["id"],
+            "is_admin": is_admin,
         },
     )
 
