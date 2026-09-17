@@ -101,6 +101,21 @@ body {
 .text-primary { color: var(--primary); }
 .text-emerald-400 { color: var(--emerald); }
 
+/* Universal SVG sizing utility safeguards */
+svg.w-3 { width: 12px !important; height: 12px !important; min-width: 12px !important; min-height: 12px !important; }
+svg.w-3\.5, svg.w-3_5 { width: 14px !important; height: 14px !important; min-width: 14px !important; min-height: 14px !important; }
+svg.w-4 { width: 16px !important; height: 16px !important; min-width: 16px !important; min-height: 16px !important; }
+svg.w-5 { width: 20px !important; height: 20px !important; min-width: 20px !important; min-height: 20px !important; }
+svg.w-6 { width: 24px !important; height: 24px !important; min-width: 24px !important; min-height: 24px !important; }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
 /* Custom Scrollbar */
 .custom-scroll::-webkit-scrollbar {
   width: 6px;
@@ -941,6 +956,71 @@ body {
   border-color: rgba(16, 185, 129, 0.3);
   color: var(--emerald);
 }
+.location-badge svg,
+#share-location-info svg {
+  width: 14px !important;
+  height: 14px !important;
+  min-width: 14px !important;
+  min-height: 14px !important;
+  max-width: 14px !important;
+  max-height: 14px !important;
+  flex-shrink: 0;
+  margin-right: 0.35rem;
+}
+
+/* Read Aloud (Google TTS) Button */
+.btn-read-aloud {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: var(--radius-full);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-read-aloud:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: rgba(99, 102, 241, 0.1);
+}
+.btn-read-aloud.is-playing {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: var(--primary);
+  color: var(--primary);
+  box-shadow: 0 0 10px var(--primary-glow);
+}
+.btn-read-aloud.is-loading {
+  opacity: 0.75;
+  cursor: wait;
+}
+.btn-read-aloud:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.btn-read-aloud svg {
+  width: 14px !important;
+  height: 14px !important;
+  min-width: 14px !important;
+  min-height: 14px !important;
+  max-width: 14px !important;
+  max-height: 14px !important;
+  flex-shrink: 0;
+}
+html.light .btn-read-aloud {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+html.light .btn-read-aloud:hover:not(:disabled) {
+  background: #f1f5f9;
+  color: #4f46e5;
+  border-color: #4f46e5;
+}
 
 .report-content-wrapper {
   flex: 1;
@@ -1145,7 +1225,122 @@ body {
 }
 .map-popup-card {
   padding: 4px;
-  min-width: 140px;
+  min-width: 150px;
+}
+
+/* --- Aggregated Count Cluster Bubbles --- */
+.count-cluster-icon {
+  background: transparent;
+  border: none;
+}
+.count-bubble {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #111827;
+  border: 2px solid var(--primary);
+  color: #f8fafc;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5), 0 0 12px var(--primary-glow);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.count-bubble:hover {
+  transform: scale(1.12);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6), 0 0 16px var(--primary);
+  border-color: #a5b4fc;
+}
+.count-bubble.cluster-single {
+  border-color: var(--emerald);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 10px var(--emerald-glow);
+}
+.count-bubble.cluster-medium {
+  width: 42px;
+  height: 42px;
+  font-size: 14px;
+  border-color: #6366f1;
+  background: #1e1b4b;
+}
+.count-bubble.cluster-large {
+  width: 48px;
+  height: 48px;
+  font-size: 15px;
+  border-color: var(--amber);
+  background: #451a03;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 14px rgba(245, 158, 11, 0.35);
+}
+
+html.light .count-bubble {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 0 8px var(--primary-glow);
+}
+html.light .count-bubble.cluster-medium {
+  background: #eef2ff;
+}
+html.light .count-bubble.cluster-large {
+  background: #fffbeb;
+}
+
+/* Cluster Breakdown Popup */
+.cluster-popup-container {
+  max-height: 260px;
+  overflow-y: auto;
+  min-width: 220px;
+  max-width: 280px;
+}
+.cluster-popup-title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-main);
+  padding-bottom: 0.4rem;
+  margin-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.cluster-item {
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.cluster-item:last-child {
+  border-bottom: none;
+}
+.cluster-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.cluster-item-date {
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: var(--primary);
+}
+.cluster-item-loc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+.cluster-item-btn {
+  align-self: flex-start;
+  margin-top: 0.2rem;
+}
+
+/* Route polyline glow & interactive styling */
+.leaflet-interactive.route-track-polyline {
+  cursor: pointer;
+  transition: stroke 0.2s ease, stroke-width 0.2s ease;
+}
+.route-popup-card {
+  min-width: 180px;
 }
 
 /* ================= Modals ================= */
@@ -1341,27 +1536,92 @@ body {
   overflow: hidden;
 }
 .share-header {
-  height: 56px;
+  min-height: 56px;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 1.5rem;
+  padding: 0.5rem 1.25rem;
+  gap: 1rem;
 }
 .share-header-left, .share-header-right {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
+}
+.share-header .header-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+}
+.share-header .header-logo svg {
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  min-height: 22px !important;
+  max-width: 22px !important;
+  max-height: 22px !important;
+  flex-shrink: 0;
 }
 .share-title-tag {
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--primary);
   background: rgba(99, 102, 241, 0.1);
   border: 1px solid rgba(99, 102, 241, 0.25);
-  padding: 0.2rem 0.6rem;
+  padding: 0.2rem 0.65rem;
   border-radius: var(--radius-full);
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.share-view-switcher {
+  display: inline-flex;
+  background: var(--bg-main);
+  padding: 0.2rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  gap: 0.2rem;
+}
+.share-view-switcher .view-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.share-view-switcher .view-tab svg {
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  min-height: 16px !important;
+  margin-right: 0.35rem;
+  flex-shrink: 0;
+}
+.share-view-switcher .view-tab:hover {
+  color: var(--text-main);
+}
+.share-view-switcher .view-tab.active {
+  background-color: var(--bg-elevated);
+  color: var(--primary);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+html.light .share-view-switcher .view-tab.active {
+  background-color: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 .share-date-nav {
   display: flex;
@@ -1495,6 +1755,19 @@ body {
   .share-report-card {
     margin: 1rem 0.5rem;
     padding: 1.25rem;
+  }
+  .share-header {
+    padding: 0.5rem 0.75rem;
+    gap: 0.5rem;
+  }
+  .share-title-tag {
+    max-width: 140px;
+    font-size: 0.75rem;
+    padding: 0.15rem 0.4rem;
+  }
+  .share-view-switcher .view-tab {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
   }
 }
 

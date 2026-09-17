@@ -9,7 +9,8 @@ let currentReport = null; // full report object for selectedDateStr
 let isEditMode = false;
 let isRawMode = false;
 let mapInstance = null;
-let mapMarkersGroup = null;
+let mapClusterGroup = null;
+let mapRoutesGroup = null;
 
 // --- Helper Functions ---
 
@@ -306,6 +307,7 @@ async function selectDate(dateStr) {
 // --- Report Loading & Rendering ---
 
 async function loadReportForDate(dateStr) {
+  resetAudioPlayer();
   document.getElementById('current-date-heading').textContent = formatDateGerman(dateStr);
   isRawMode = false;
   document.getElementById('raw-toggle-text').textContent = 'Quelltext';
@@ -339,6 +341,9 @@ function showEmptyState() {
 
   document.getElementById('btn-toggle-raw').disabled = true;
 
+  const ttsBtn = document.getElementById('btn-read-aloud');
+  if (ttsBtn) ttsBtn.disabled = true;
+
   const actionDateEl = document.getElementById('sidebar-action-date');
   if (actionDateEl) actionDateEl.textContent = selectedDateStr;
 
@@ -364,6 +369,9 @@ function showReportContent(report) {
   document.getElementById('report-rendered-view').classList.remove('hidden');
   document.getElementById('report-raw-view').classList.add('hidden');
   document.getElementById('btn-toggle-raw').disabled = false;
+
+  const ttsBtn = document.getElementById('btn-read-aloud');
+  if (ttsBtn) ttsBtn.disabled = false;
 
   const actionDateEl = document.getElementById('sidebar-action-date');
   if (actionDateEl) actionDateEl.textContent = report.date;
@@ -590,15 +598,105 @@ function downloadReport() {
 function updateLocationBadge(report) {
   const badge = document.getElementById('location-badge-container');
   const text = document.getElementById('location-badge-text');
+  if (!badge || !text) return;
 
   if (report && report.latitude && report.longitude) {
     badge.classList.add('has-location');
-    const label = report.location_name || `${report.latitude.toFixed(4)}, ${report.longitude.toFixed(4)}`;
+    const label = report.location_name || 'Standort hinterlegt';
     text.textContent = label;
+    badge.title = `Standort: ${report.location_name || ''} (GPS: ${report.latitude.toFixed(4)}, ${report.longitude.toFixed(4)}) - Klicken zum Bearbeiten`;
   } else {
     badge.classList.remove('has-location');
-    text.textContent = 'GPS hinzufügen';
+    text.textContent = 'Ort hinzufügen';
+    badge.title = 'GPS-Standort hinzufügen';
   }
+}
+
+// --- TTS Read Aloud (Google TTS) ---
+
+function resetAudioPlayer() {
+  const audio = document.getElementById('report-audio-element');
+  const btn = document.getElementById('btn-read-aloud');
+  const speakerIcon = btn ? btn.querySelector('.tts-speaker-icon') : null;
+  const spinnerIcon = btn ? btn.querySelector('.tts-spinner-icon') : null;
+  const label = document.getElementById('read-aloud-label');
+
+  if (audio) {
+    audio.pause();
+    audio.removeAttribute('src');
+  }
+  if (btn) {
+    btn.classList.remove('is-playing', 'is-loading');
+  }
+  if (speakerIcon) speakerIcon.classList.remove('hidden');
+  if (spinnerIcon) spinnerIcon.classList.add('hidden');
+  if (label) label.textContent = 'Vorlesen';
+}
+
+async function toggleReadAloud() {
+  if (!selectedDateStr || !currentReport || !currentReport.content) {
+    alert('Kein Bericht zum Vorlesen vorhanden.');
+    return;
+  }
+
+  const audio = document.getElementById('report-audio-element');
+  const btn = document.getElementById('btn-read-aloud');
+  const speakerIcon = btn ? btn.querySelector('.tts-speaker-icon') : null;
+  const spinnerIcon = btn ? btn.querySelector('.tts-spinner-icon') : null;
+  const label = document.getElementById('read-aloud-label');
+
+  if (!audio || !btn) return;
+
+  // Toggle pause if currently playing
+  if (!audio.paused && !audio.ended && audio.currentTime > 0) {
+    audio.pause();
+    btn.classList.remove('is-playing');
+    if (label) label.textContent = 'Vorlesen';
+    return;
+  }
+
+  // Resume if paused and same source
+  const targetSrc = `/api/reports/${selectedDateStr}/audio`;
+  if (audio.src && audio.src.endsWith(targetSrc) && audio.currentTime > 0 && !audio.ended) {
+    audio.play();
+    btn.classList.add('is-playing');
+    if (label) label.textContent = 'Pause';
+    return;
+  }
+
+  // Load new audio
+  btn.classList.add('is-loading');
+  if (spinnerIcon) spinnerIcon.classList.remove('hidden');
+  if (speakerIcon) speakerIcon.classList.add('hidden');
+  if (label) label.textContent = 'Erstelle Audio...';
+
+  audio.src = targetSrc;
+  audio.load();
+
+  audio.oncanplaythrough = () => {
+    btn.classList.remove('is-loading');
+    btn.classList.add('is-playing');
+    if (spinnerIcon) spinnerIcon.classList.add('hidden');
+    if (speakerIcon) speakerIcon.classList.remove('hidden');
+    if (label) label.textContent = 'Pause';
+    audio.play();
+  };
+
+  audio.onended = () => {
+    btn.classList.remove('is-playing', 'is-loading');
+    if (spinnerIcon) spinnerIcon.classList.add('hidden');
+    if (speakerIcon) speakerIcon.classList.remove('hidden');
+    if (label) label.textContent = 'Vorlesen';
+    audio.currentTime = 0;
+  };
+
+  audio.onerror = () => {
+    btn.classList.remove('is-playing', 'is-loading');
+    if (spinnerIcon) spinnerIcon.classList.add('hidden');
+    if (speakerIcon) speakerIcon.classList.remove('hidden');
+    if (label) label.textContent = 'Vorlesen';
+    alert('Audio konnte nicht geladen oder generiert werden.');
+  };
 }
 
 function openLocationModal() {
@@ -714,13 +812,81 @@ function switchMainView(view) {
 
 async function initMainMap() {
   if (!mapInstance) {
-    mapInstance = L.map('leaflet-map-container').setView([51.1657, 10.4515], 6);
+    mapInstance = L.map('leaflet-map-container', {
+      zoomControl: true,
+      scrollWheelZoom: true
+    }).setView([51.1657, 10.4515], 6);
+
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
       maxZoom: 19
     }).addTo(mapInstance);
 
-    mapMarkersGroup = L.layerGroup().addTo(mapInstance);
+    // Layer group for GPS activity routes
+    mapRoutesGroup = L.layerGroup().addTo(mapInstance);
+
+    // MarkerCluster group for aggregated count bubbles
+    if (window.L && L.markerClusterGroup) {
+      mapClusterGroup = L.markerClusterGroup({
+        showCoverageOnHover: false,
+        maxClusterRadius: 45,
+        spiderfyOnMaxZoom: true,
+        iconCreateFunction: function(cluster) {
+          const count = cluster.getChildCount();
+          let sizeClass = '';
+          let iconSize = [36, 36];
+          if (count >= 10) {
+            sizeClass = 'cluster-large';
+            iconSize = [48, 48];
+          } else if (count >= 4) {
+            sizeClass = 'cluster-medium';
+            iconSize = [42, 42];
+          }
+          return L.divIcon({
+            html: `<div class="count-bubble ${sizeClass}">${count}</div>`,
+            className: 'count-cluster-icon',
+            iconSize: iconSize,
+            iconAnchor: [iconSize[0] / 2, iconSize[1] / 2]
+          });
+        }
+      });
+
+      // When clicking a cluster at max zoom, show popup listing reports
+      mapClusterGroup.on('clusterclick', function(c) {
+        if (mapInstance.getZoom() >= 14 && c.layer && c.layer.getAllChildMarkers) {
+          const markers = c.layer.getAllChildMarkers();
+          if (markers.length > 1) {
+            let html = `<div class="cluster-popup-container">
+              <div class="cluster-popup-title"><span>${markers.length} Berichte hier</span></div>`;
+            markers.forEach(m => {
+              if (m._reportData) {
+                const rep = m._reportData;
+                html += `
+                  <div class="cluster-item">
+                    <div class="cluster-item-header">
+                      <span class="cluster-item-date">${rep.date}</span>
+                      <span class="cluster-item-loc">${rep.location_name || 'Standort'}</span>
+                    </div>
+                    <button class="btn btn-primary btn-xs cluster-item-btn" onclick="jumpFromMapToReport('${rep.date}')">
+                      Bericht öffnen
+                    </button>
+                  </div>
+                `;
+              }
+            });
+            html += `</div>`;
+            L.popup().setLatLng(c.latlng).setContent(html).openOn(mapInstance);
+          }
+        }
+      });
+
+      mapInstance.addLayer(mapClusterGroup);
+    } else {
+      mapClusterGroup = L.layerGroup().addTo(mapInstance);
+    }
+
+    // Zoom listener for efficient route rendering
+    mapInstance.on('zoomend', updateMapRoutesVisibility);
 
     // Click on map to set coordinates for current date
     mapInstance.on('click', (e) => {
@@ -739,9 +905,25 @@ async function initMainMap() {
   }, 200);
 }
 
+function updateMapRoutesVisibility() {
+  if (!mapInstance || !mapRoutesGroup) return;
+  // Anti-lag: Only display detailed GPS route tracks from zoom level 9 and closer
+  const zoom = mapInstance.getZoom();
+  if (zoom >= 9) {
+    if (!mapInstance.hasLayer(mapRoutesGroup)) {
+      mapInstance.addLayer(mapRoutesGroup);
+    }
+  } else {
+    if (mapInstance.hasLayer(mapRoutesGroup)) {
+      mapInstance.removeLayer(mapRoutesGroup);
+    }
+  }
+}
+
 async function loadMapLocations() {
-  if (!mapMarkersGroup) return;
-  mapMarkersGroup.clearLayers();
+  if (!mapClusterGroup || !mapRoutesGroup) return;
+  mapClusterGroup.clearLayers();
+  mapRoutesGroup.clearLayers();
 
   try {
     const res = await fetch('/api/locations');
@@ -753,30 +935,95 @@ async function loadMapLocations() {
     locations.forEach(loc => {
       bounds.push([loc.latitude, loc.longitude]);
 
-      const customIcon = L.divIcon({
-        className: 'custom-map-bubble',
-        html: `
-          <div class="map-bubble-inner">
-            <span class="bubble-dot"></span>
-            <span class="bubble-date">${loc.date.slice(5)}</span>
-          </div>
-        `,
-        iconSize: [80, 32],
-        iconAnchor: [40, 16]
+      // 1. Cluster pin with count 1
+      const singleIcon = L.divIcon({
+        html: `<div class="count-bubble cluster-single" title="${loc.location_name || loc.date}">1</div>`,
+        className: 'count-cluster-icon',
+        iconSize: [36, 36],
+        iconAnchor: [18, 18]
       });
 
-      const marker = L.marker([loc.latitude, loc.longitude], { icon: customIcon });
+      const marker = L.marker([loc.latitude, loc.longitude], { icon: singleIcon });
+      marker._reportData = loc;
+
       marker.bindPopup(`
         <div class="map-popup-card">
-          <h4 class="font-bold text-sm mb-1">${loc.date}</h4>
-          <p class="text-xs text-muted mb-2">${loc.location_name || 'Standort'}</p>
+          <div class="text-xs font-bold text-primary mb-1">${loc.date}</div>
+          <h4 class="font-bold text-sm mb-1">${loc.location_name || 'Standort'}</h4>
+          ${loc.snippet ? `<p class="text-xs text-muted mb-2 italic">"${loc.snippet}..."</p>` : ''}
           <button class="btn btn-primary btn-xs w-full" onclick="jumpFromMapToReport('${loc.date}')">
             Bericht öffnen
           </button>
         </div>
       `);
-      mapMarkersGroup.addLayer(marker);
+      mapClusterGroup.addLayer(marker);
+
+      // 2. GPS Activity Route Polylines (if available)
+      if (loc.routes && Array.isArray(loc.routes) && loc.routes.length > 0) {
+        loc.routes.forEach(route => {
+          if (route.coordinates && route.coordinates.length > 0) {
+            route.coordinates.forEach(pt => bounds.push(pt));
+
+            const polyline = L.polyline(route.coordinates, {
+              color: '#0284c7',
+              weight: 4.5,
+              opacity: 0.92,
+              lineCap: 'round',
+              lineJoin: 'round',
+              className: 'route-track-polyline'
+            });
+
+            const popupContent = `
+              <div class="map-popup-card route-popup-card">
+                <div class="text-xs font-bold text-primary mb-1">🗺️ GPS Aktivität (${loc.date})</div>
+                <h4 class="font-bold text-sm mb-1">${route.title || 'GPS Route'}</h4>
+                ${route.distance_km ? `<p class="text-xs text-muted">Distanz: ${route.distance_km.toFixed(2)} km</p>` : ''}
+                ${route.elevation_gain_m ? `<p class="text-xs text-muted mb-2">Höhenmeter: +${Math.round(route.elevation_gain_m)} m</p>` : ''}
+                <button class="btn btn-primary btn-xs w-full mt-2" onclick="jumpFromMapToReport('${loc.date}')">
+                  Bericht öffnen
+                </button>
+              </div>
+            `;
+            polyline.bindPopup(popupContent);
+
+            polyline.on('mouseover', function() {
+              this.setStyle({ color: '#38bdf8', weight: 6.5, opacity: 1 });
+            });
+            polyline.on('mouseout', function() {
+              this.setStyle({ color: '#0284c7', weight: 4.5, opacity: 0.92 });
+            });
+
+            mapRoutesGroup.addLayer(polyline);
+
+            // Start & Finish markers
+            const startPt = route.coordinates[0];
+            const lastPt = route.coordinates[route.coordinates.length - 1];
+
+            const startIcon = L.divIcon({
+              className: 'custom-pin',
+              html: '<div class="route-marker-pin route-marker-start" style="width:22px;height:22px;">S</div>',
+              iconSize: [22, 22],
+              iconAnchor: [11, 11]
+            });
+            const startMarker = L.marker(startPt, { icon: startIcon });
+            startMarker.bindPopup(`<b>Start</b>: ${route.title || 'Start'}<br><button class="btn btn-primary btn-xs w-full mt-2" onclick="jumpFromMapToReport('${loc.date}')">Bericht öffnen</button>`);
+            mapRoutesGroup.addLayer(startMarker);
+
+            const finishIcon = L.divIcon({
+              className: 'custom-pin',
+              html: '<div class="route-marker-pin route-marker-finish" style="width:22px;height:22px;">Z</div>',
+              iconSize: [22, 22],
+              iconAnchor: [11, 11]
+            });
+            const finishMarker = L.marker(lastPt, { icon: finishIcon });
+            finishMarker.bindPopup(`<b>Ziel</b>: ${route.title || 'Ziel'}<br><button class="btn btn-primary btn-xs w-full mt-2" onclick="jumpFromMapToReport('${loc.date}')">Bericht öffnen</button>`);
+            mapRoutesGroup.addLayer(finishMarker);
+          }
+        });
+      }
     });
+
+    updateMapRoutesVisibility();
 
     if (bounds.length > 0) {
       mapInstance.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });

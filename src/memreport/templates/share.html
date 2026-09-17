@@ -8,7 +8,7 @@
   <header class="share-header">
     <div class="share-header-left">
       <div class="header-logo">
-        <svg class="w-6 h-6 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="22" height="22" class="w-6 h-6 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
           <polyline points="14 2 14 8 20 8"></polyline>
           <line x1="16" y1="13" x2="8" y2="13"></line>
@@ -17,23 +17,38 @@
         </svg>
         <span class="font-bold text-base tracking-tight text-slate-200">MemReport</span>
       </div>
-      <span class="share-title-tag">{{ title }}</span>
+      {% if title and title != "None" and title != "" %}
+      <span class="share-title-tag" title="{{ title }}">{{ title }}</span>
+      {% endif %}
     </div>
 
     <div class="share-header-right">
-      <div class="view-switcher" id="share-view-switcher">
+      <div class="share-view-switcher" id="share-view-switcher">
         <button class="view-tab active" id="tab-share-report" onclick="switchSharePublicView('report')">
-          <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          <svg width="16" height="16" class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
           Bericht
         </button>
         <button class="view-tab" id="tab-share-map" onclick="switchSharePublicView('map')">
-          <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+          <svg width="16" height="16" class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
           Karte
         </button>
       </div>
 
+      <!-- TTS Read Aloud Button in Share View -->
+      <button id="btn-share-read-aloud" class="btn-read-aloud" onclick="toggleShareReadAloud()" title="Diesen Bericht vorlesen (Google TTS)">
+        <svg width="14" height="14" class="tts-speaker-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+        </svg>
+        <svg width="14" height="14" class="tts-spinner-icon hidden animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none" stroke-opacity="0.3"></circle>
+          <path fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+        </svg>
+        <span id="share-read-aloud-label">Vorlesen</span>
+      </button>
+      <audio id="share-audio-player" class="hidden"></audio>
+
       <button class="btn btn-secondary btn-sm" onclick="downloadCurrentSharedReport()">
-        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        <svg width="16" height="16" class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
         Download
       </button>
     </div>
@@ -55,7 +70,7 @@
         <div class="report-meta-header mb-6 pb-4 border-b border-surface-700">
           <h1 id="share-report-date-title" class="text-2xl font-bold mb-2"></h1>
           <div id="share-location-info" class="flex items-center text-xs text-muted">
-            <svg class="w-4 h-4 mr-1 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <svg width="14" height="14" class="w-3.5 h-3.5 mr-1 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
             <span id="share-location-text"></span>
           </div>
         </div>
@@ -137,9 +152,13 @@
 
     titleEl.textContent = `Bericht für ${date}`;
 
+    // Reset audio player when date changes
+    resetShareAudio();
+
     if (report.latitude && report.longitude) {
       locInfo.classList.remove('hidden');
-      locText.textContent = `${report.location_name ? report.location_name + ' — ' : ''}GPS: ${report.latitude.toFixed(4)}, ${report.longitude.toFixed(4)}`;
+      locText.textContent = report.location_name || 'Standort hinterlegt';
+      locInfo.title = `Standort: ${report.location_name || ''} (GPS: ${report.latitude.toFixed(4)}, ${report.longitude.toFixed(4)})`;
     } else {
       locInfo.classList.add('hidden');
     }
@@ -333,15 +352,109 @@
     }
   }
 
+  let shareRoutesLayer = null;
+
+  function extractRoutesFromContent(content) {
+    const routes = [];
+    if (!content) return routes;
+    const regex = /```(?:leaflet|geojson)\s*\n([\s\S]*?)\n```/gi;
+    let m;
+    while ((m = regex.exec(content)) !== null) {
+      try {
+        const data = JSON.parse(m[1].trim());
+        if (data.coordinates && Array.isArray(data.coordinates) && data.coordinates.length > 0) {
+          routes.push({
+            title: data.title || 'GPS Route',
+            coordinates: data.coordinates,
+            distance_km: data.distance_km,
+            elevation_gain_m: data.elevation_gain_m
+          });
+        }
+      } catch (e) {}
+    }
+    return routes;
+  }
+
   function initShareMap() {
     if (!shareMap) {
-      shareMap = L.map('share-leaflet-map').setView([51.1657, 10.4515], 6);
+      shareMap = L.map('share-leaflet-map', {
+        zoomControl: true,
+        scrollWheelZoom: true
+      }).setView([51.1657, 10.4515], 6);
+
       L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
         maxZoom: 19
       }).addTo(shareMap);
 
-      shareMarkersLayer = L.layerGroup().addTo(shareMap);
+      shareRoutesLayer = L.layerGroup().addTo(shareMap);
+
+      if (window.L && L.markerClusterGroup) {
+        shareMarkersLayer = L.markerClusterGroup({
+          showCoverageOnHover: false,
+          maxClusterRadius: 45,
+          spiderfyOnMaxZoom: true,
+          iconCreateFunction: function(cluster) {
+            const count = cluster.getChildCount();
+            let sizeClass = '';
+            let iconSize = [36, 36];
+            if (count >= 10) {
+              sizeClass = 'cluster-large';
+              iconSize = [48, 48];
+            } else if (count >= 4) {
+              sizeClass = 'cluster-medium';
+              iconSize = [42, 42];
+            }
+            return L.divIcon({
+              html: `<div class="count-bubble ${sizeClass}">${count}</div>`,
+              className: 'count-cluster-icon',
+              iconSize: iconSize,
+              iconAnchor: [iconSize[0] / 2, iconSize[1] / 2]
+            });
+          }
+        });
+
+        shareMarkersLayer.on('clusterclick', function(c) {
+          if (shareMap.getZoom() >= 14 && c.layer && c.layer.getAllChildMarkers) {
+            const markers = c.layer.getAllChildMarkers();
+            if (markers.length > 1) {
+              let html = `<div class="cluster-popup-container">
+                <div class="cluster-popup-title"><span>${markers.length} Berichte hier</span></div>`;
+              markers.forEach(m => {
+                if (m._reportData) {
+                  const rep = m._reportData;
+                  html += `
+                    <div class="cluster-item">
+                      <div class="cluster-item-header">
+                        <span class="cluster-item-date">${rep.date}</span>
+                        <span class="cluster-item-loc">${rep.location_name || 'Standort'}</span>
+                      </div>
+                      <button class="btn btn-primary btn-xs cluster-item-btn" onclick="selectAndShowSharedReport('${rep.date}')">
+                        Bericht ansehen
+                      </button>
+                    </div>
+                  `;
+                }
+              });
+              html += `</div>`;
+              L.popup().setLatLng(c.latlng).setContent(html).openOn(shareMap);
+            }
+          }
+        });
+
+        shareMap.addLayer(shareMarkersLayer);
+      } else {
+        shareMarkersLayer = L.layerGroup().addTo(shareMap);
+      }
+
+      shareMap.on('zoomend', () => {
+        if (!shareMap || !shareRoutesLayer) return;
+        if (shareMap.getZoom() >= 9) {
+          if (!shareMap.hasLayer(shareRoutesLayer)) shareMap.addLayer(shareRoutesLayer);
+        } else {
+          if (shareMap.hasLayer(shareRoutesLayer)) shareMap.removeLayer(shareRoutesLayer);
+        }
+      });
     }
 
     setTimeout(() => {
@@ -351,31 +464,105 @@
   }
 
   function renderShareMapMarkers() {
-    if (!shareMarkersLayer) return;
+    if (!shareMarkersLayer || !shareRoutesLayer) return;
     shareMarkersLayer.clearLayers();
+    shareRoutesLayer.clearLayers();
 
     const bounds = [];
 
     Object.entries(sharedData.reports).forEach(([date, rep]) => {
-      if (rep.latitude && rep.longitude) {
-        bounds.push([rep.latitude, rep.longitude]);
+      const routes = extractRoutesFromContent(rep.content);
 
-        const customIcon = L.divIcon({
-          className: 'custom-map-bubble',
-          html: `<div class="map-bubble-inner"><span class="bubble-dot"></span><span class="bubble-date">${date.slice(5)}</span></div>`,
-          iconSize: [80, 32],
-          iconAnchor: [40, 16]
+      let lat = rep.latitude;
+      let lon = rep.longitude;
+      if ((lat === null || lon === null || lat === undefined || lon === undefined) && routes.length > 0) {
+        lat = routes[0].coordinates[0][0];
+        lon = routes[0].coordinates[0][1];
+      }
+
+      if (lat && lon) {
+        bounds.push([lat, lon]);
+
+        const singleIcon = L.divIcon({
+          html: `<div class="count-bubble cluster-single" title="${rep.location_name || date}">1</div>`,
+          className: 'count-cluster-icon',
+          iconSize: [36, 36],
+          iconAnchor: [18, 18]
         });
 
-        const marker = L.marker([rep.latitude, rep.longitude], { icon: customIcon });
+        const marker = L.marker([lat, lon], { icon: singleIcon });
+        marker._reportData = Object.assign({}, rep, { date: date });
         marker.bindPopup(`
           <div class="map-popup-card">
-            <h4 class="font-bold text-sm mb-1">${date}</h4>
-            <p class="text-xs text-muted mb-2">${rep.location_name || 'Standort'}</p>
-            <button class="btn btn-primary btn-xs w-full" onclick="selectAndShowSharedReport('${date}')">Bericht ansehen</button>
+            <div class="text-xs font-bold text-primary mb-1">${date}</div>
+            <h4 class="font-bold text-sm mb-1">${rep.location_name || 'Standort'}</h4>
+            <button class="btn btn-primary btn-xs w-full mt-2" onclick="selectAndShowSharedReport('${date}')">
+              Bericht ansehen
+            </button>
           </div>
         `);
         shareMarkersLayer.addLayer(marker);
+
+        // Render GPS route polylines
+        routes.forEach(route => {
+          if (route.coordinates && route.coordinates.length > 0) {
+            route.coordinates.forEach(pt => bounds.push(pt));
+
+            const polyline = L.polyline(route.coordinates, {
+              color: '#0284c7',
+              weight: 4.5,
+              opacity: 0.92,
+              lineCap: 'round',
+              lineJoin: 'round',
+              className: 'route-track-polyline'
+            });
+
+            polyline.bindPopup(`
+              <div class="map-popup-card route-popup-card">
+                <div class="text-xs font-bold text-primary mb-1">🗺️ GPS Aktivität (${date})</div>
+                <h4 class="font-bold text-sm mb-1">${route.title || 'GPS Route'}</h4>
+                ${route.distance_km ? `<p class="text-xs text-muted">Distanz: ${route.distance_km.toFixed(2)} km</p>` : ''}
+                ${route.elevation_gain_m ? `<p class="text-xs text-muted mb-2">Höhenmeter: +${Math.round(route.elevation_gain_m)} m</p>` : ''}
+                <button class="btn btn-primary btn-xs w-full mt-2" onclick="selectAndShowSharedReport('${date}')">
+                  Bericht ansehen
+                </button>
+              </div>
+            `);
+
+            polyline.on('mouseover', function() {
+              this.setStyle({ color: '#38bdf8', weight: 6.5, opacity: 1 });
+            });
+            polyline.on('mouseout', function() {
+              this.setStyle({ color: '#0284c7', weight: 4.5, opacity: 0.92 });
+            });
+
+            shareRoutesLayer.addLayer(polyline);
+
+            // Start & Finish markers
+            const startPt = route.coordinates[0];
+            const lastPt = route.coordinates[route.coordinates.length - 1];
+
+            const startIcon = L.divIcon({
+              className: 'custom-pin',
+              html: '<div class="route-marker-pin route-marker-start" style="width:22px;height:22px;">S</div>',
+              iconSize: [22, 22],
+              iconAnchor: [11, 11]
+            });
+            const startMarker = L.marker(startPt, { icon: startIcon });
+            startMarker.bindPopup(`<b>Start</b>: ${route.title || 'Start'}<br><button class="btn btn-primary btn-xs w-full mt-2" onclick="selectAndShowSharedReport('${date}')">Bericht ansehen</button>`);
+            shareRoutesLayer.addLayer(startMarker);
+
+            const finishIcon = L.divIcon({
+              className: 'custom-pin',
+              html: '<div class="route-marker-pin route-marker-finish" style="width:22px;height:22px;">Z</div>',
+              iconSize: [22, 22],
+              iconAnchor: [11, 11]
+            });
+            const finishMarker = L.marker(lastPt, { icon: finishIcon });
+            finishMarker.bindPopup(`<b>Ziel</b>: ${route.title || 'Ziel'}<br><button class="btn btn-primary btn-xs w-full mt-2" onclick="selectAndShowSharedReport('${date}')">Bericht ansehen</button>`);
+            shareRoutesLayer.addLayer(finishMarker);
+          }
+        });
       }
     });
 
@@ -400,6 +587,84 @@
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+  }
+
+  function resetShareAudio() {
+    const audio = document.getElementById('share-audio-player');
+    const btn = document.getElementById('btn-share-read-aloud');
+    if (audio) {
+      audio.pause();
+      audio.removeAttribute('src');
+    }
+    if (btn) {
+      btn.classList.remove('is-playing', 'is-loading');
+      btn.querySelector('.tts-speaker-icon')?.classList.remove('hidden');
+      btn.querySelector('.tts-spinner-icon')?.classList.add('hidden');
+      const label = document.getElementById('share-read-aloud-label');
+      if (label) label.textContent = 'Vorlesen';
+    }
+  }
+
+  function toggleShareReadAloud() {
+    if (!currentSelectedDate) return;
+    const btn = document.getElementById('btn-share-read-aloud');
+    const speakerIcon = btn.querySelector('.tts-speaker-icon');
+    const spinnerIcon = btn.querySelector('.tts-spinner-icon');
+    const label = document.getElementById('share-read-aloud-label');
+    const audio = document.getElementById('share-audio-player');
+
+    if (!audio) return;
+
+    // Toggle pause if currently playing
+    if (!audio.paused && !audio.ended && audio.currentTime > 0) {
+      audio.pause();
+      btn.classList.remove('is-playing');
+      label.textContent = 'Vorlesen';
+      return;
+    }
+
+    // Resume if paused and same source
+    const targetSrc = `/api/public/shares/${SHARE_TOKEN}/reports/${currentSelectedDate}/audio`;
+    if (audio.src && audio.src.endsWith(targetSrc) && audio.currentTime > 0 && !audio.ended) {
+      audio.play();
+      btn.classList.add('is-playing');
+      label.textContent = 'Pause';
+      return;
+    }
+
+    // Load new audio
+    btn.classList.add('is-loading');
+    spinnerIcon.classList.remove('hidden');
+    speakerIcon.classList.add('hidden');
+    label.textContent = 'Erstelle Audio...';
+
+    audio.src = targetSrc;
+    audio.load();
+
+    audio.oncanplaythrough = () => {
+      btn.classList.remove('is-loading');
+      btn.classList.add('is-playing');
+      spinnerIcon.classList.add('hidden');
+      speakerIcon.classList.remove('hidden');
+      label.textContent = 'Pause';
+      audio.play();
+    };
+
+    audio.onended = () => {
+      btn.classList.remove('is-playing', 'is-loading');
+      spinnerIcon.classList.add('hidden');
+      speakerIcon.classList.remove('hidden');
+      label.textContent = 'Vorlesen';
+      audio.currentTime = 0;
+    };
+
+    audio.onerror = () => {
+      btn.classList.remove('is-playing', 'is-loading');
+      spinnerIcon.classList.add('hidden');
+      speakerIcon.classList.remove('hidden');
+      label.textContent = 'Vorlesen';
+      alert('Audio konnte nicht geladen oder generiert werden.');
+    };
   }
 
   window.addEventListener('DOMContentLoaded', loadSharedReport);

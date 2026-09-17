@@ -2,6 +2,7 @@
 
 from contextlib import asynccontextmanager
 import json
+import re
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any, Tuple
 import aiosqlite
@@ -383,20 +384,79 @@ async def delete_report_location(user_id: int, date: str) -> bool:
         return cursor.rowcount > 0
 
 
+def extract_routes_from_markdown(content: str) -> List[Dict[str, Any]]:
+    """
+    Extract GPS route objects from ```leaflet or ```geojson code blocks.
+    Returns list of dicts with title, coordinates, distance_km, elevation_gain_m.
+    """
+    routes = []
+    if not content:
+        return routes
+
+    pattern = re.compile(r"```(?:leaflet|geojson)\s*\n([\s\S]*?)\n```", re.IGNORECASE)
+    for match in pattern.finditer(content):
+        raw_json = match.group(1).strip()
+        try:
+            data = json.loads(raw_json)
+            if isinstance(data, dict):
+                coords = data.get("coordinates")
+                if isinstance(coords, list) and len(coords) > 0:
+                    if isinstance(coords[0], (list, tuple)) and len(coords[0]) >= 2:
+                        routes.append({
+                            "title": data.get("title") or "GPS Route",
+                            "coordinates": coords,
+                            "distance_km": data.get("distance_km"),
+                            "elevation_gain_m": data.get("elevation_gain_m"),
+                        })
+                elif data.get("type") in ("FeatureCollection", "Feature", "LineString"):
+                    geo_coords = []
+                    if data.get("type") == "LineString":
+                        geo_coords = [[pt[1], pt[0]] for pt in data.get("coordinates", []) if len(pt) >= 2]
+                    elif data.get("type") == "Feature" and data.get("geometry", {}).get("type") == "LineString":
+                        geo_coords = [[pt[1], pt[0]] for pt in data["geometry"].get("coordinates", []) if len(pt) >= 2]
+                    if geo_coords:
+                        routes.append({
+                            "title": data.get("properties", {}).get("title") or "GPS Route",
+                            "coordinates": geo_coords,
+                            "distance_km": data.get("properties", {}).get("distance_km"),
+                            "elevation_gain_m": data.get("properties", {}).get("elevation_gain_m"),
+                        })
+        except Exception:
+            continue
+    return routes
+
+
 async def get_user_locations(user_id: int) -> List[Dict[str, Any]]:
     async with get_db() as db:
         async with db.execute(
             """
             SELECT date, latitude, longitude, location_name, content_type,
-                   SUBSTR(content, 1, 140) as snippet
+                   content
             FROM reports
-            WHERE user_id = ? AND latitude IS NOT NULL AND longitude IS NOT NULL
+            WHERE user_id = ?
             ORDER BY date DESC
             """,
             (user_id,),
         ) as cursor:
             rows = await cursor.fetchall()
-            return [dict(r) for r in rows]
+            results = []
+            for r in rows:
+                item = dict(r)
+                content = item.pop("content", "") or ""
+                routes = extract_routes_from_markdown(content)
+
+                if (item["latitude"] is None or item["longitude"] is None) and routes:
+                    first_coord = routes[0]["coordinates"][0]
+                    item["latitude"] = float(first_coord[0])
+                    item["longitude"] = float(first_coord[1])
+                    if not item.get("location_name"):
+                        item["location_name"] = routes[0].get("title") or "Route"
+
+                if item["latitude"] is not None and item["longitude"] is not None:
+                    item["snippet"] = content[:140] if content else ""
+                    item["routes"] = routes if routes else None
+                    results.append(item)
+            return results
 
 
 # --- Share Queries ---
@@ -544,7 +604,16 @@ async def get_share_by_token(token: str) -> Optional[Dict[str, Any]]:
                 ) as rep_cursor:
                     rep_rows = await rep_cursor.fetchall()
                     for rep in rep_rows:
-                        reports_dict[rep["date"]] = dict(rep)
+                        item = dict(rep)
+                        if (item["latitude"] is None or item["longitude"] is None) and item.get("content"):
+                            routes = extract_routes_from_markdown(item["content"])
+                            if routes:
+                                first_pt = routes[0]["coordinates"][0]
+                                item["latitude"] = float(first_pt[0])
+                                item["longitude"] = float(first_pt[1])
+                                if not item.get("location_name"):
+                                    item["location_name"] = routes[0].get("title") or "Route"
+                        reports_dict[item["date"]] = item
                 dates = list(reports_dict.keys())
             else:
                 dates = json.loads(share["dates"])
@@ -561,7 +630,16 @@ async def get_share_by_token(token: str) -> Optional[Dict[str, Any]]:
                     ) as rep_cursor:
                         rep_rows = await rep_cursor.fetchall()
                         for rep in rep_rows:
-                            reports_dict[rep["date"]] = dict(rep)
+                            item = dict(rep)
+                            if (item["latitude"] is None or item["longitude"] is None) and item.get("content"):
+                                routes = extract_routes_from_markdown(item["content"])
+                                if routes:
+                                    first_pt = routes[0]["coordinates"][0]
+                                    item["latitude"] = float(first_pt[0])
+                                    item["longitude"] = float(first_pt[1])
+                                    if not item.get("location_name"):
+                                        item["location_name"] = routes[0].get("title") or "Route"
+                            reports_dict[item["date"]] = item
 
             return {
                 "id": share["id"],

@@ -4,8 +4,10 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import FileResponse
 
 from memreport.config import settings
+from memreport.tts import get_or_create_report_audio
 from memreport.models import (
     ShareCreate,
     ShareUpdate,
@@ -182,3 +184,32 @@ async def get_public_share(token: str):
         reports=reports_map,
         expires_at=share["expires_at"],
     )
+
+
+@router.get("/api/public/shares/{token}/reports/{date}/audio")
+async def get_public_share_report_audio(token: str, date: str, lang: str = "de"):
+    """Public audio stream for a report contained within a shared link."""
+    share = await get_share_by_token(token)
+    if not share:
+        raise HTTPException(status_code=404, detail="Shared report not found or link expired")
+
+    report_dict = share["reports"].get(date)
+    if not report_dict:
+        raise HTTPException(status_code=404, detail="Report for date not included in this share")
+
+    audio_path = await get_or_create_report_audio(
+        user_id=report_dict["user_id"],
+        date_str=date,
+        raw_content=report_dict["content"],
+        lang=lang,
+    )
+    if not audio_path or not audio_path.exists():
+        raise HTTPException(status_code=400, detail="Kein lesbarer Text im Bericht vorhanden")
+
+    return FileResponse(
+        audio_path,
+        media_type="audio/mpeg",
+        filename=f"report-{date}.mp3",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+

@@ -8,6 +8,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
+AUDIO_CACHE_DIR = DATA_DIR / "audio_cache"
+AUDIO_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="MEMREPORT_", extra="ignore")

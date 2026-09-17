@@ -1,6 +1,6 @@
 """Pydantic models for MemReport."""
 
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Any
 from pydantic import BaseModel, Field, field_validator
 import re
 
@@ -92,6 +92,7 @@ class LocationItem(BaseModel):
     location_name: Optional[str] = None
     snippet: str
     content_type: str
+    routes: Optional[List[Dict[str, Any]]] = None
 
 
 class ShareCreate(BaseModel):

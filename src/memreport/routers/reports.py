@@ -2,6 +2,7 @@
 
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import FileResponse
 
 from memreport.models import (
     ReportCreate,
@@ -19,6 +20,7 @@ from memreport.database import (
     toggle_report_like,
 )
 from memreport.auth import get_current_user
+from memreport.tts import get_or_create_report_audio, cleanup_report_audio
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -124,6 +126,7 @@ async def edit_report(
             overwrite=True,
         )
 
+    cleanup_report_audio(current_user["id"], date)
     return ReportResponse(**updated)
 
 
@@ -142,6 +145,7 @@ async def remove_report(
     if not deleted:
         raise HTTPException(status_code=404, detail=f"No report found for date {date}")
 
+    cleanup_report_audio(current_user["id"], date)
     return {"message": f"Report for {date} deleted successfully"}
 
 
@@ -162,3 +166,35 @@ async def toggle_like(
 
     return {"date": date, "is_liked": new_liked}
 
+
+@router.get("/{date}/audio")
+async def get_report_audio(
+    date: str,
+    lang: str = "de",
+    current_user: dict = Depends(get_current_user),
+):
+    """Serve cached audio (or generate with Google TTS) for the specified report date."""
+    try:
+        validate_date_str(date)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    report = await get_report(current_user["id"], date)
+    if not report:
+        raise HTTPException(status_code=404, detail=f"No report found for date {date}")
+
+    audio_path = await get_or_create_report_audio(
+        user_id=current_user["id"],
+        date_str=date,
+        raw_content=report["content"],
+        lang=lang,
+    )
+    if not audio_path or not audio_path.exists():
+        raise HTTPException(status_code=400, detail="Kein lesbarer Text im Bericht vorhanden")
+
+    return FileResponse(
+        audio_path,
+        media_type="audio/mpeg",
+        filename=f"report-{date}.mp3",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
