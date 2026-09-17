@@ -95,8 +95,9 @@ class LocationItem(BaseModel):
 
 
 class ShareCreate(BaseModel):
-    dates: List[str] = Field(..., min_length=1)
+    dates: List[str] = Field(default_factory=list)
     title: Optional[str] = Field(None, max_length=150)
+    share_all: bool = False
     expires_in_days: Optional[int] = Field(None, ge=1, le=365)
 
     @field_validator("dates")
@@ -107,11 +108,28 @@ class ShareCreate(BaseModel):
         return sorted(list(set(dates)))
 
 
+class ShareUpdate(BaseModel):
+    title: Optional[str] = Field(None, max_length=150)
+    dates: Optional[List[str]] = None
+    share_all: Optional[bool] = None
+    expires_in_days: Optional[int] = Field(None, ge=1, le=365)
+
+    @field_validator("dates")
+    @classmethod
+    def validate_dates(cls, dates: Optional[List[str]]) -> Optional[List[str]]:
+        if dates is not None:
+            for d in dates:
+                validate_date_str(d)
+            return sorted(list(set(dates)))
+        return dates
+
+
 class ShareResponse(BaseModel):
     id: int
     token: str
     dates: List[str]
     title: Optional[str] = None
+    share_all: bool = False
     share_url: str
     created_at: str
     expires_at: Optional[str] = None
@@ -120,5 +138,7 @@ class ShareResponse(BaseModel):
 class PublicShareData(BaseModel):
     title: Optional[str] = None
     dates: List[str]
+    share_all: bool = False
     reports: Dict[str, ReportResponse]
     expires_at: Optional[str] = None
+

@@ -32,9 +32,27 @@ function formatDateGerman(dateStr) {
 
 window.addEventListener('DOMContentLoaded', async () => {
   initTheme();
+
+  // Check URL query param ?date=YYYY-MM-DD
+  const urlParams = new URLSearchParams(window.location.search);
+  const dateQuery = urlParams.get('date');
+  if (dateQuery && /^\d{4}-\d{2}-\d{2}$/.test(dateQuery)) {
+    selectedDateStr = dateQuery;
+    const [y, m, d] = dateQuery.split('-').map(Number);
+    currentDate = new Date(y, m - 1, d || 1);
+  }
+
   await loadReportsList();
   renderCalendar();
   await loadReportForDate(selectedDateStr);
+});
+
+window.addEventListener('popstate', (e) => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const dateQuery = urlParams.get('date');
+  if (dateQuery && /^\d{4}-\d{2}-\d{2}$/.test(dateQuery) && dateQuery !== selectedDateStr) {
+    selectDate(dateQuery);
+  }
 });
 
 // Keyboard shortcut to toggle sidebar: '['
@@ -268,6 +286,13 @@ async function selectDate(dateStr) {
 
   renderCalendar();
   closeMobileSidebar();
+
+  // Update URL query parameter without full page reload
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set('date', dateStr);
+    window.history.replaceState({ date: dateStr }, '', url.toString());
+  } catch (e) {}
 
   // Update active item in sidebar
   document.querySelectorAll('.report-item').forEach(el => el.classList.remove('active'));
@@ -772,30 +797,77 @@ function jumpFromMapToReport(dateStr) {
 
 // --- Share Modal Logic ---
 
-let currentShareTab = 'create';
+function resolvePublicShareUrl(shareUrl, token) {
+  if (!token) return shareUrl;
+  try {
+    // Derive the base path prefix (e.g. '/memreport' if accessed via http://192.168.2.41:8125/memreport/viewer)
+    const appBasePath = window.location.pathname.replace(/\/viewer.*$/, '');
+    return `${window.location.origin}${appBasePath}/share/${token}`;
+  } catch (e) {
+    return shareUrl;
+  }
+}
+
+function toggleShareAllCheckbox(checked) {
+  const datesGroup = document.getElementById('share-dates-group');
+  if (!datesGroup) return;
+  if (checked) {
+    datesGroup.style.opacity = '0.35';
+    datesGroup.style.pointerEvents = 'none';
+  } else {
+    datesGroup.style.opacity = '1';
+    datesGroup.style.pointerEvents = 'auto';
+  }
+}
+
+function toggleEditShareAllCheckbox(checked) {
+  const datesGroup = document.getElementById('edit-share-dates-group');
+  if (!datesGroup) return;
+  if (checked) {
+    datesGroup.style.opacity = '0.35';
+    datesGroup.style.pointerEvents = 'none';
+  } else {
+    datesGroup.style.opacity = '1';
+    datesGroup.style.pointerEvents = 'auto';
+  }
+}
 
 function openShareModal() {
   populateShareDatesChecklist();
   document.getElementById('share-result-box').classList.add('hidden');
-  document.getElementById('modal-share').classList.remove('hidden');
+  document.getElementById('share-title').value = '';
+  const shareAllCb = document.getElementById('share-all-reports-checkbox');
+  if (shareAllCb) {
+    shareAllCb.checked = false;
+    toggleShareAllCheckbox(false);
+  }
   switchShareTab('create');
-}
-
-function openShareCurrentDateModal() {
-  openShareModal();
-  selectCurrentDateOnly();
+  document.getElementById('modal-share').classList.remove('hidden');
 }
 
 function closeShareModal() {
   document.getElementById('modal-share').classList.add('hidden');
 }
 
+function openShareCurrentDateModal() {
+  openShareModal();
+  switchShareTab('create');
+  const shareAllCb = document.getElementById('share-all-reports-checkbox');
+  if (shareAllCb) {
+    shareAllCb.checked = false;
+    toggleShareAllCheckbox(false);
+  }
+  selectCurrentDateOnly();
+}
+
 function switchShareTab(tab) {
-  currentShareTab = tab;
   const createTab = document.getElementById('tab-share-create');
   const listTab = document.getElementById('tab-share-list');
   const createView = document.getElementById('share-view-create');
   const listView = document.getElementById('share-view-list');
+  const editView = document.getElementById('share-view-edit');
+
+  if (editView) editView.classList.add('hidden');
 
   if (tab === 'create') {
     createTab.classList.add('active');
@@ -847,10 +919,14 @@ function selectAllDates() {
 }
 
 async function generateShareLink() {
-  const selectedDates = Array.from(document.querySelectorAll('.share-date-checkbox:checked')).map(cb => cb.value);
-  if (selectedDates.length === 0) {
-    alert('Bitte mindestens ein Datum auswählen');
-    return;
+  const shareAll = document.getElementById('share-all-reports-checkbox')?.checked || false;
+  let selectedDates = [];
+  if (!shareAll) {
+    selectedDates = Array.from(document.querySelectorAll('.share-date-checkbox:checked')).map(cb => cb.value);
+    if (selectedDates.length === 0) {
+      alert('Bitte mindestens ein Datum auswählen oder "Alle Berichte teilen" aktivieren.');
+      return;
+    }
   }
 
   const title = document.getElementById('share-title').value.trim() || null;
@@ -859,6 +935,7 @@ async function generateShareLink() {
   const payload = {
     dates: selectedDates,
     title: title,
+    share_all: shareAll,
     expires_in_days: expiryDays > 0 ? expiryDays : null
   };
 
@@ -872,8 +949,9 @@ async function generateShareLink() {
     if (!res.ok) throw new Error('Freigabe-Link konnte nicht erstellt werden');
 
     const data = await res.json();
-    document.getElementById('share-url-input').value = data.share_url;
-    document.getElementById('share-open-link').href = data.share_url;
+    const finalUrl = resolvePublicShareUrl(data.share_url, data.token);
+    document.getElementById('share-url-input').value = finalUrl;
+    document.getElementById('share-open-link').href = finalUrl;
     document.getElementById('share-result-box').classList.remove('hidden');
   } catch (err) {
     alert(err.message);
@@ -890,6 +968,8 @@ function copyShareUrl() {
   setTimeout(() => { btn.textContent = original; }, 2000);
 }
 
+let currentActiveShares = [];
+
 async function loadActiveShares() {
   const container = document.getElementById('active-shares-container');
   container.innerHTML = '<div class="text-xs text-muted">Lade Freigaben...</div>';
@@ -898,6 +978,7 @@ async function loadActiveShares() {
     const res = await fetch('/api/shares');
     if (!res.ok) throw new Error('Konnte Freigaben nicht laden');
     const shares = await res.json();
+    currentActiveShares = shares;
 
     if (shares.length === 0) {
       container.innerHTML = '<div class="text-xs text-muted">Keine aktiven Freigaben vorhanden</div>';
@@ -906,20 +987,112 @@ async function loadActiveShares() {
 
     container.innerHTML = '';
     shares.forEach(s => {
+      const finalUrl = resolvePublicShareUrl(s.share_url, s.token);
+      const isShareAll = Boolean(s.share_all);
+      const scopeBadge = isShareAll
+        ? '<span class="inline-flex items-center text-[10px] bg-indigo-900/60 text-indigo-300 px-1.5 py-0.5 rounded font-medium border border-indigo-700/50">🌐 Alle Berichte (inkl. zukünftige)</span>'
+        : `<span class="text-xs text-muted">${s.dates.length} Tage geteilt: ${s.dates.join(', ')}</span>`;
+
       const item = document.createElement('div');
       item.className = 'active-share-item';
       item.innerHTML = `
         <div class="flex-1 min-w-0 mr-2">
-          <p class="font-semibold text-xs truncate">${s.title || 'Unbenannte Freigabe'}</p>
-          <p class="text-xs text-muted">${s.dates.length} Tage geteilt: ${s.dates.join(', ')}</p>
-          <a href="${s.share_url}" target="_blank" class="text-xs text-primary underline truncate block">${s.share_url}</a>
+          <div class="flex items-center gap-2 mb-0.5">
+            <p class="font-semibold text-xs truncate">${s.title || 'Unbenannte Freigabe'}</p>
+            ${isShareAll ? scopeBadge : ''}
+          </div>
+          ${!isShareAll ? `<p class="text-xs text-muted mb-1">${scopeBadge}</p>` : ''}
+          <a href="${finalUrl}" target="_blank" class="text-xs text-primary underline truncate block font-mono">${finalUrl}</a>
         </div>
-        <button class="btn btn-danger btn-xs" onclick="revokeShare(${s.id})">Widerrufen</button>
+        <div class="flex items-center gap-1.5 flex-shrink-0">
+          <button class="btn btn-secondary btn-xs" onclick="openEditShare(${s.id})" title="Tage oder Titel bearbeiten">Bearbeiten</button>
+          <button class="btn btn-danger btn-xs" onclick="revokeShare(${s.id})" title="Freigabe löschen">Widerrufen</button>
+        </div>
       `;
       container.appendChild(item);
     });
   } catch (err) {
     container.innerHTML = `<div class="text-xs text-rose-400">${err.message}</div>`;
+  }
+}
+
+function openEditShare(shareId) {
+  const share = currentActiveShares.find(s => s.id === shareId);
+  if (!share) return;
+
+  document.getElementById('edit-share-id').value = share.id;
+  document.getElementById('edit-share-title').value = share.title || '';
+
+  const shareAllCb = document.getElementById('edit-share-all-checkbox');
+  shareAllCb.checked = Boolean(share.share_all);
+  toggleEditShareAllCheckbox(shareAllCb.checked);
+
+  // Populate edit dates checklist
+  const container = document.getElementById('edit-share-dates-checklist');
+  container.innerHTML = '';
+  const allDates = Object.keys(reportsMap).sort().reverse();
+
+  if (allDates.length === 0) {
+    container.innerHTML = '<span class="text-xs text-muted">Keine Berichte vorhanden</span>';
+  } else {
+    allDates.forEach(d => {
+      const isChecked = share.dates.includes(d);
+      const label = document.createElement('label');
+      label.className = 'date-check-item';
+      label.innerHTML = `
+        <input type="checkbox" value="${d}" class="edit-share-date-checkbox" ${isChecked ? 'checked' : ''} />
+        <span>${d}</span>
+        <span class="text-xs text-muted">(${reportsMap[d].content_type})</span>
+      `;
+      container.appendChild(label);
+    });
+  }
+
+  // Switch to edit view
+  document.getElementById('share-view-list').classList.add('hidden');
+  document.getElementById('share-view-create').classList.add('hidden');
+  document.getElementById('share-view-edit').classList.remove('hidden');
+}
+
+function selectAllEditDates(selectAll) {
+  document.querySelectorAll('.edit-share-date-checkbox').forEach(cb => {
+    cb.checked = selectAll;
+  });
+}
+
+async function saveShareEdit() {
+  const shareId = parseInt(document.getElementById('edit-share-id').value, 10);
+  if (!shareId) return;
+
+  const title = document.getElementById('edit-share-title').value.trim() || null;
+  const shareAll = document.getElementById('edit-share-all-checkbox').checked;
+
+  let selectedDates = [];
+  if (!shareAll) {
+    selectedDates = Array.from(document.querySelectorAll('.edit-share-date-checkbox:checked')).map(cb => cb.value);
+    if (selectedDates.length === 0) {
+      alert('Bitte mindestens ein Datum auswählen oder "Alle Berichte teilen" aktivieren.');
+      return;
+    }
+  }
+
+  try {
+    const res = await fetch(`/api/shares/${shareId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: title,
+        share_all: shareAll,
+        dates: selectedDates
+      })
+    });
+
+    if (!res.ok) throw new Error('Änderungen konnten nicht gespeichert werden');
+
+    // Return to list view and refresh
+    switchShareTab('list');
+  } catch (err) {
+    alert(err.message);
   }
 }
 

@@ -353,7 +353,18 @@
         </select>
       </div>
 
-      <div class="form-group">
+      <!-- Option: Share All Reports -->
+      <div class="form-group mb-3">
+        <label class="flex items-center gap-2 cursor-pointer p-2.5 rounded border border-surface-700 bg-surface-900 hover:border-primary transition">
+          <input type="checkbox" id="share-all-reports-checkbox" onchange="toggleShareAllCheckbox(this.checked)" class="w-4 h-4 rounded text-primary" />
+          <div>
+            <span class="text-xs font-semibold block text-main">🌐 Alle Berichte teilen (auch zukünftige)</span>
+            <span class="text-[11px] text-muted block">Jeder mit dem Link kann alle bisherigen und künftig erstellten Berichte lesen (nur lesend).</span>
+          </div>
+        </label>
+      </div>
+
+      <div class="form-group" id="share-dates-group">
         <div class="flex justify-between items-center mb-1.5">
           <label class="form-label mb-0">Tage auswählen</label>
           <div class="flex gap-2">
@@ -387,6 +398,47 @@
     <div id="share-view-list" class="modal-body hidden">
       <div id="active-shares-container" class="active-shares-list custom-scroll">
         <!-- Dynamically populated active shares -->
+      </div>
+    </div>
+
+    <!-- Edit Existing Share Section -->
+    <div id="share-view-edit" class="modal-body hidden">
+      <div class="flex items-center justify-between mb-3 pb-2 border-b border-surface-700">
+        <h4 class="text-xs font-bold uppercase tracking-wider text-primary">Freigabe bearbeiten</h4>
+        <button type="button" class="btn-link text-xs" onclick="switchShareTab('list')">← Zurück zur Liste</button>
+      </div>
+      <input type="hidden" id="edit-share-id" />
+      <div class="form-group">
+        <label class="form-label">Titel / Notiz</label>
+        <input type="text" id="edit-share-title" class="form-input" placeholder="Titel der Freigabe" />
+      </div>
+
+      <div class="form-group mb-3">
+        <label class="flex items-center gap-2 cursor-pointer p-2.5 rounded border border-surface-700 bg-surface-900 hover:border-primary transition">
+          <input type="checkbox" id="edit-share-all-checkbox" onchange="toggleEditShareAllCheckbox(this.checked)" class="w-4 h-4 rounded text-primary" />
+          <div>
+            <span class="text-xs font-semibold block text-main">🌐 Alle Berichte teilen (auch zukünftige)</span>
+            <span class="text-[11px] text-muted block">Link gewährt Zugriff auf alle bisherigen und künftigen Berichte.</span>
+          </div>
+        </label>
+      </div>
+
+      <div class="form-group" id="edit-share-dates-group">
+        <div class="flex justify-between items-center mb-1.5">
+          <label class="form-label mb-0">Tage auswählen / anpassen</label>
+          <div class="flex gap-2">
+            <button type="button" class="btn-link text-xs" onclick="selectAllEditDates(true)">Alle</button>
+            <button type="button" class="btn-link text-xs" onclick="selectAllEditDates(false)">Keine</button>
+          </div>
+        </div>
+        <div id="edit-share-dates-checklist" class="dates-checklist custom-scroll">
+          <!-- Dynamically populated checkboxes for edit -->
+        </div>
+      </div>
+
+      <div class="flex gap-2 mt-4">
+        <button type="button" class="btn btn-secondary btn-sm flex-1" onclick="switchShareTab('list')">Abbrechen</button>
+        <button type="button" class="btn btn-primary btn-sm flex-1" onclick="saveShareEdit()">Änderungen speichern</button>
       </div>
     </div>
   </div>

@@ -428,7 +428,24 @@ body {
   color: var(--primary);
 }
 .dropdown-item svg {
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  max-width: 16px !important;
+  margin-right: 0.6rem;
+  flex-shrink: 0 !important;
+}
+.theme-icon-slot {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 0.6rem;
   flex-shrink: 0;
+}
+.theme-icon-slot svg {
+  margin-right: 0 !important;
 }
 .dropdown-item-danger {
   color: #fb7185;
@@ -1235,6 +1252,16 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.75rem;
+}
+.active-share-item > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+.active-share-item a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ================= Auth Screen ================= */

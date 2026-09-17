@@ -69,10 +69,15 @@ async def init_db() -> None:
                 token TEXT UNIQUE NOT NULL,
                 dates TEXT NOT NULL,
                 title TEXT,
+                share_all INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL,
                 expires_at TEXT
             )
         """)
+        try:
+            await db.execute("ALTER TABLE shares ADD COLUMN share_all INTEGER NOT NULL DEFAULT 0")
+        except Exception:
+            pass
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_shares_token ON shares(token)
         """)
@@ -401,6 +406,7 @@ async def create_share(
     token: str,
     dates: List[str],
     title: Optional[str] = None,
+    share_all: bool = False,
     expires_at: Optional[str] = None,
 ) -> Dict[str, Any]:
     now = utc_now_iso()
@@ -408,10 +414,10 @@ async def create_share(
     async with get_db() as db:
         cursor = await db.execute(
             """
-            INSERT INTO shares (user_id, token, dates, title, created_at, expires_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO shares (user_id, token, dates, title, share_all, created_at, expires_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (user_id, token, dates_json, title, now, expires_at),
+            (user_id, token, dates_json, title, 1 if share_all else 0, now, expires_at),
         )
         await db.commit()
         share_id = cursor.lastrowid
@@ -420,8 +426,53 @@ async def create_share(
             "token": token,
             "dates": dates,
             "title": title,
+            "share_all": bool(share_all),
             "created_at": now,
             "expires_at": expires_at,
+        }
+
+
+async def update_share(
+    user_id: int,
+    share_id: int,
+    title: Optional[str] = None,
+    dates: Optional[List[str]] = None,
+    share_all: Optional[bool] = None,
+    expires_at: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    async with get_db() as db:
+        async with db.execute(
+            "SELECT id, token, dates, title, share_all, created_at, expires_at FROM shares WHERE user_id = ? AND id = ?",
+            (user_id, share_id),
+        ) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                return None
+            current = dict(row)
+
+        new_title = title if title is not None else current["title"]
+        new_dates = dates if dates is not None else json.loads(current["dates"])
+        new_share_all = (1 if share_all else 0) if share_all is not None else current.get("share_all", 0)
+        new_expires_at = expires_at if expires_at is not None else current["expires_at"]
+
+        await db.execute(
+            """
+            UPDATE shares
+            SET title = ?, dates = ?, share_all = ?, expires_at = ?
+            WHERE user_id = ? AND id = ?
+            """,
+            (new_title, json.dumps(new_dates), new_share_all, new_expires_at, user_id, share_id),
+        )
+        await db.commit()
+
+        return {
+            "id": share_id,
+            "token": current["token"],
+            "dates": new_dates,
+            "title": new_title,
+            "share_all": bool(new_share_all),
+            "created_at": current["created_at"],
+            "expires_at": new_expires_at,
         }
 
 
@@ -429,7 +480,7 @@ async def get_user_shares(user_id: int) -> List[Dict[str, Any]]:
     async with get_db() as db:
         async with db.execute(
             """
-            SELECT id, token, dates, title, created_at, expires_at
+            SELECT id, token, dates, title, share_all, created_at, expires_at
             FROM shares
             WHERE user_id = ?
             ORDER BY created_at DESC
@@ -441,6 +492,7 @@ async def get_user_shares(user_id: int) -> List[Dict[str, Any]]:
             for r in rows:
                 item = dict(r)
                 item["dates"] = json.loads(item["dates"])
+                item["share_all"] = bool(item.get("share_all", 0))
                 result.append(item)
             return result
 
@@ -460,7 +512,7 @@ async def get_share_by_token(token: str) -> Optional[Dict[str, Any]]:
     async with get_db() as db:
         async with db.execute(
             """
-            SELECT id, user_id, token, dates, title, created_at, expires_at
+            SELECT id, user_id, token, dates, title, share_all, created_at, expires_at
             FROM shares
             WHERE token = ?
             """,
@@ -475,31 +527,48 @@ async def get_share_by_token(token: str) -> Optional[Dict[str, Any]]:
             if share["expires_at"] and share["expires_at"] < now:
                 return None
 
-            dates = json.loads(share["dates"])
             user_id = share["user_id"]
+            is_share_all = bool(share.get("share_all", 0))
 
-            # Fetch the actual reports for these dates
             reports_dict = {}
-            if dates:
-                placeholders = ",".join(["?"] * len(dates))
+            if is_share_all:
+                # Fetch ALL reports for this user (including future ones)
                 async with db.execute(
-                    f"""
+                    """
                     SELECT id, date, content_type, content, latitude, longitude, location_name, created_at, updated_at
                     FROM reports
-                    WHERE user_id = ? AND date IN ({placeholders})
+                    WHERE user_id = ?
                     ORDER BY date ASC
                     """,
-                    [user_id] + dates,
+                    (user_id,),
                 ) as rep_cursor:
                     rep_rows = await rep_cursor.fetchall()
                     for rep in rep_rows:
                         reports_dict[rep["date"]] = dict(rep)
+                dates = list(reports_dict.keys())
+            else:
+                dates = json.loads(share["dates"])
+                if dates:
+                    placeholders = ",".join(["?"] * len(dates))
+                    async with db.execute(
+                        f"""
+                        SELECT id, date, content_type, content, latitude, longitude, location_name, created_at, updated_at
+                        FROM reports
+                        WHERE user_id = ? AND date IN ({placeholders})
+                        ORDER BY date ASC
+                        """,
+                        [user_id] + dates,
+                    ) as rep_cursor:
+                        rep_rows = await rep_cursor.fetchall()
+                        for rep in rep_rows:
+                            reports_dict[rep["date"]] = dict(rep)
 
             return {
                 "id": share["id"],
                 "token": share["token"],
                 "title": share["title"],
                 "dates": dates,
+                "share_all": is_share_all,
                 "reports": reports_dict,
                 "created_at": share["created_at"],
                 "expires_at": share["expires_at"],

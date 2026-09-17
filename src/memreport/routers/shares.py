@@ -2,17 +2,20 @@
 
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
 
+from memreport.config import settings
 from memreport.models import (
     ShareCreate,
+    ShareUpdate,
     ShareResponse,
     PublicShareData,
     ReportResponse,
 )
 from memreport.database import (
     create_share,
+    update_share,
     get_user_shares,
     delete_share,
     get_share_by_token,
@@ -22,13 +25,30 @@ from memreport.auth import get_current_user
 router = APIRouter(tags=["shares"])
 
 
+def get_base_url(request: Request) -> str:
+    """Resolve base URL taking into account config, proxy headers and request."""
+    if settings.base_url:
+        return settings.base_url.rstrip("/")
+
+    # Respect standard proxy forwarding headers if present
+    forwarded_proto = request.headers.get("x-forwarded-proto") or request.url.scheme
+    forwarded_host = request.headers.get("x-forwarded-host") or request.headers.get("host")
+    forwarded_prefix = request.headers.get("x-forwarded-prefix", "").strip("/")
+
+    if forwarded_host:
+        prefix_part = f"/{forwarded_prefix}" if forwarded_prefix else ""
+        return f"{forwarded_proto}://{forwarded_host}{prefix_part}"
+
+    return str(request.base_url).rstrip("/")
+
+
 @router.post("/api/shares", response_model=ShareResponse)
 async def create_share_link(
     share_in: ShareCreate,
     request: Request,
     current_user: dict = Depends(get_current_user),
 ):
-    """Generate a public shareable link for one or more dates."""
+    """Generate a public shareable link for one or more dates or all reports."""
     token = secrets.token_urlsafe(18)
     expires_at = None
     if share_in.expires_in_days:
@@ -41,10 +61,11 @@ async def create_share_link(
         token=token,
         dates=share_in.dates,
         title=share_in.title,
+        share_all=share_in.share_all,
         expires_at=expires_at,
     )
 
-    base_url = str(request.base_url).rstrip("/")
+    base_url = get_base_url(request)
     share_url = f"{base_url}/share/{token}"
 
     return ShareResponse(
@@ -52,6 +73,7 @@ async def create_share_link(
         token=created["token"],
         dates=created["dates"],
         title=created["title"],
+        share_all=created["share_all"],
         share_url=share_url,
         created_at=created["created_at"],
         expires_at=created["expires_at"],
@@ -65,7 +87,7 @@ async def list_user_shares(
 ):
     """List all created share links for the logged-in user."""
     shares = await get_user_shares(current_user["id"])
-    base_url = str(request.base_url).rstrip("/")
+    base_url = get_base_url(request)
     result = []
     for s in shares:
         share_url = f"{base_url}/share/{s['token']}"
@@ -75,12 +97,56 @@ async def list_user_shares(
                 token=s["token"],
                 dates=s["dates"],
                 title=s["title"],
+                share_all=s.get("share_all", False),
                 share_url=share_url,
                 created_at=s["created_at"],
                 expires_at=s["expires_at"],
             )
         )
     return result
+
+
+@router.put("/api/shares/{share_id}", response_model=ShareResponse)
+async def update_share_link(
+    share_id: int,
+    share_in: ShareUpdate,
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+):
+    """Update an existing share link's title, dates, share_all flag, or expiry."""
+    expires_at = None
+    if share_in.expires_in_days is not None:
+        if share_in.expires_in_days > 0:
+            expires_at = (
+                datetime.now(timezone.utc) + timedelta(days=share_in.expires_in_days)
+            ).isoformat()
+        else:
+            expires_at = None
+
+    updated = await update_share(
+        user_id=current_user["id"],
+        share_id=share_id,
+        title=share_in.title,
+        dates=share_in.dates,
+        share_all=share_in.share_all,
+        expires_at=expires_at,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Share not found")
+
+    base_url = get_base_url(request)
+    share_url = f"{base_url}/share/{updated['token']}"
+
+    return ShareResponse(
+        id=updated["id"],
+        token=updated["token"],
+        dates=updated["dates"],
+        title=updated["title"],
+        share_all=updated["share_all"],
+        share_url=share_url,
+        created_at=updated["created_at"],
+        expires_at=updated["expires_at"],
+    )
 
 
 @router.delete("/api/shares/{share_id}")
@@ -112,6 +178,7 @@ async def get_public_share(token: str):
     return PublicShareData(
         title=share["title"],
         dates=share["dates"],
+        share_all=share.get("share_all", False),
         reports=reports_map,
         expires_at=share["expires_at"],
     )

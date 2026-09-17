@@ -23,5 +23,8 @@ class Settings(BaseSettings):
     default_admin_user: str = os.getenv("MEMREPORT_DEFAULT_USER", "admin")
     default_admin_password: str = os.getenv("MEMREPORT_DEFAULT_PASSWORD", "admin123")
 
+    # Optional explicit Base URL (e.g. http://192.168.2.41:8125/memreport or https://reports.example.com)
+    base_url: str | None = os.getenv("MEMREPORT_BASE_URL", None)
+
 
 settings = Settings()
