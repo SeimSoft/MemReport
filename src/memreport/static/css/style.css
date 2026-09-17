@@ -32,6 +32,28 @@
   --font-mono: 'JetBrains Mono', monospace;
 }
 
+html.light {
+  --bg-main: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-elevated: #f1f5f9;
+  --bg-subtle: #e2e8f0;
+  --border-color: #cbd5e1;
+  --border-focus: #4f46e5;
+
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --text-subtle: #64748b;
+
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --primary-glow: rgba(79, 70, 229, 0.15);
+
+  --emerald: #059669;
+  --emerald-glow: rgba(5, 150, 105, 0.15);
+  --amber: #d97706;
+  --rose: #e11d48;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -45,6 +67,7 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* Utilities */
@@ -255,7 +278,7 @@ body {
 .header-left, .header-right {
   display: flex;
   align-items: center;
-  gap: 1.25rem;
+  gap: 1rem;
 }
 .header-logo {
   display: flex;
@@ -263,30 +286,44 @@ body {
   gap: 0.5rem;
 }
 
-.view-switcher {
-  display: flex;
-  background-color: var(--bg-main);
-  padding: 3px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-color);
-}
-.view-tab {
+/* Sidebar Toggle Button (Desktop & Mobile) */
+.sidebar-toggle-btn {
   display: flex;
   align-items: center;
-  padding: 0.3rem 0.75rem;
-  font-size: 0.8125rem;
-  font-weight: 500;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  background: var(--bg-main);
+  border: 1px solid var(--border-color);
   color: var(--text-muted);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  border: none;
   cursor: pointer;
   transition: all 0.15s ease;
 }
-.view-tab.active {
-  background-color: var(--bg-elevated);
+.sidebar-toggle-btn:hover {
   color: var(--text-main);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  border-color: var(--primary);
+  background: var(--bg-elevated);
+}
+
+/* Theme Toggle Button (Light/Dark Mode) */
+.theme-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  background: var(--bg-main);
+  border: 1px solid var(--border-color);
+  color: var(--amber);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.theme-toggle-btn:hover {
+  transform: rotate(15deg) scale(1.05);
+  border-color: var(--amber);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.25);
 }
 
 .user-menu {
@@ -323,19 +360,82 @@ body {
   font-weight: 700;
 }
 
-.mobile-menu-btn {
-  display: none;
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 0.35rem;
-  border-radius: var(--radius-sm);
-  margin-right: 0.25rem;
+/* Profile Dropdown Menu in Top Right */
+.profile-dropdown-container {
+  position: relative;
 }
-.mobile-menu-btn:hover {
+.dropdown-caret {
+  transition: transform 0.2s ease;
+}
+.profile-dropdown-container.open .dropdown-caret {
+  transform: rotate(180deg);
+}
+.profile-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 230px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.5), 0 0 1px rgba(255, 255, 255, 0.1);
+  padding: 0.4rem;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: dropdownSlideIn 0.16s ease-out;
+}
+.profile-dropdown-menu.hidden {
+  display: none !important;
+}
+@keyframes dropdownSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.dropdown-user-header {
+  padding: 0.5rem 0.75rem 0.35rem;
+}
+.dropdown-divider {
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 0.3rem 0;
+}
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
   color: var(--text-main);
-  background: var(--bg-elevated);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease, color 0.12s ease;
+  text-decoration: none;
+}
+.dropdown-item:hover {
+  background-color: var(--bg-subtle);
+  color: var(--primary);
+}
+.dropdown-item svg {
+  flex-shrink: 0;
+}
+.dropdown-item-danger {
+  color: #fb7185;
+}
+.dropdown-item-danger:hover {
+  background-color: rgba(244, 63, 94, 0.12);
+  color: #f43f5e;
 }
 
 .mobile-sidebar-backdrop {
@@ -360,9 +460,22 @@ body {
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  padding: 1rem;
-  gap: 1rem;
+  padding: 0.875rem;
+  gap: 0.875rem;
   overflow-y: auto;
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease, padding 0.25s ease;
+}
+
+/* Desktop Sidebar Collapse */
+.app-layout.sidebar-collapsed .app-sidebar {
+  width: 0 !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-right: none !important;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden !important;
 }
 
 .sidebar-card {
@@ -376,7 +489,138 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
+/* Sidebar View Switcher */
+.sidebar-view-switcher {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  background-color: var(--bg-main);
+  padding: 3px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+.sidebar-view-switcher .view-tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.sidebar-view-switcher .view-tab.active {
+  background-color: var(--bg-elevated);
+  color: var(--text-main);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+}
+
+/* Sidebar Mini Actions Toolbar (Kompakt & Platzsparend) */
+.sidebar-actions-compact {
+  margin-top: 0.5rem;
+}
+
+.actions-mini-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.action-mini-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 28px;
+  padding: 0 4px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  background: var(--bg-main);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.12s ease;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.action-mini-btn:hover {
+  background: var(--bg-subtle);
+  color: var(--text-main);
+  border-color: #475569;
+}
+
+.action-mini-btn svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+/* Action Button: Like */
+.action-mini-btn.action-btn-like {
+  color: var(--rose) !important;
+  border-color: rgba(244, 63, 94, 0.25) !important;
+}
+.action-mini-btn.action-btn-like:hover {
+  background: rgba(244, 63, 94, 0.15) !important;
+  border-color: var(--rose) !important;
+  color: #f43f5e !important;
+}
+.action-mini-btn.action-btn-like.liked {
+  background: #f43f5e !important;
+  color: #ffffff !important;
+  border-color: #f43f5e !important;
+  box-shadow: 0 0 10px rgba(244, 63, 94, 0.4);
+}
+.action-mini-btn.action-btn-like.liked .heart-icon {
+  fill: currentColor;
+}
+
+/* Action Button: Delete */
+.action-mini-btn.action-btn-delete {
+  background: rgba(244, 63, 94, 0.08) !important;
+  color: #fb7185 !important;
+  border-color: rgba(244, 63, 94, 0.25) !important;
+}
+.action-mini-btn.action-btn-delete:hover {
+  background: #e11d48 !important;
+  color: #ffffff !important;
+  border-color: #e11d48 !important;
+  box-shadow: 0 0 12px rgba(225, 29, 72, 0.4);
+}
+.action-mini-btn.action-btn-delete:hover svg {
+  color: #ffffff !important;
+}
+
+/* Report Header Bar in Main View */
+.report-header-bar {
+  padding: 0.875rem 1.5rem;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header-like-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0.5rem;
+  font-size: 1.1rem;
+  animation: heartPulse 0.3s ease;
+}
+@keyframes heartPulse {
+  0% { transform: scale(0.6); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
 }
 
 /* ================= Calendar Widget ================= */
@@ -514,6 +758,28 @@ body {
 .dot-gps {
   background-color: var(--amber);
 }
+.dot-like {
+  background-color: var(--rose);
+  box-shadow: 0 0 5px rgba(244, 63, 94, 0.5);
+}
+
+/* Liked Report Day in Calendar: Highlighted Border & Heart */
+.calendar-day.is-liked {
+  border: 1.5px solid var(--rose) !important;
+  box-shadow: 0 0 8px rgba(244, 63, 94, 0.4);
+}
+.calendar-day.is-liked::after {
+  content: '❤️';
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  font-size: 7.5px;
+  line-height: 1;
+}
+.calendar-day.day-selected.is-liked {
+  border: 1.5px solid #ffffff !important;
+  box-shadow: 0 0 12px rgba(244, 63, 94, 0.6);
+}
 
 .calendar-footer {
   display: flex;
@@ -525,7 +791,8 @@ body {
 }
 .calendar-legend {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 .legend-item {
   display: flex;
@@ -540,6 +807,7 @@ body {
   border-radius: 50%;
 }
 .report-dot { background-color: var(--emerald); }
+.like-dot { background-color: var(--rose); }
 .gps-dot { background-color: var(--amber); }
 
 /* Reports Sidebar List */
@@ -1133,18 +1401,12 @@ body {
 
 /* ================= Responsive Styles (Mobile & Tablet) ================= */
 @media (max-width: 900px) {
-  .mobile-menu-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
   .app-sidebar {
     position: fixed;
     top: 56px;
     bottom: 0;
     left: 0;
-    width: 300px;
+    width: 320px;
     max-width: 85vw;
     z-index: 50;
     transform: translateX(-100%);
@@ -1155,19 +1417,14 @@ body {
     transform: translateX(0);
   }
 
-  .report-toolbar {
+  .report-header-bar {
     padding: 0.75rem 1rem;
     flex-wrap: wrap;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
   .toolbar-date-group {
     width: 100%;
     justify-content: space-between;
-  }
-  .toolbar-actions {
-    width: 100%;
-    overflow-x: auto;
-    padding-bottom: 2px;
   }
 
   .report-rendered-container, .report-raw-container {
@@ -1196,15 +1453,6 @@ body {
   }
   .app-brand-title {
     display: none;
-  }
-  .view-tab span {
-    display: none;
-  }
-  .view-tab {
-    padding: 0.35rem 0.5rem;
-  }
-  .view-tab svg {
-    margin-right: 0 !important;
   }
   .header-username-text {
     display: none;
@@ -1235,6 +1483,28 @@ body {
   z-index: 1;
 }
 
+/* CRITICAL FIX: Prevent markdown img styles from breaking leaflet tiles and pins */
+.markdown-body .leaflet-container img,
+.interactive-map-widget img,
+.leaflet-container .leaflet-tile,
+.leaflet-tile-container img {
+  max-width: none !important;
+  max-height: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: block !important;
+  outline: none !important;
+  background: transparent !important;
+}
+
+.custom-pin {
+  background: transparent !important;
+  border: none !important;
+}
+
 .interactive-plotly-widget {
   width: 100%;
   min-height: 420px;
@@ -1263,3 +1533,75 @@ body {
 .route-marker-finish {
   background: #f43f5e;
 }
+
+/* ================= Light Mode Theme Overrides ================= */
+html.light body {
+  background-color: var(--bg-main);
+  color: var(--text-main);
+}
+html.light .markdown-body h1,
+html.light .markdown-body h2,
+html.light .markdown-body h3,
+html.light .markdown-body h4 {
+  color: #0f172a;
+}
+html.light .markdown-body pre {
+  background: #f8fafc !important;
+  border-color: #cbd5e1;
+}
+html.light .markdown-body code:not(pre code) {
+  background: #f1f5f9;
+  color: #4338ca;
+}
+html.light .btn-secondary {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+html.light .btn-secondary:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+html.light .modal-card {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+html.light .interactive-plotly-widget {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: #cbd5e1;
+}
+html.light .sidebar-view-switcher .view-tab.active {
+  background-color: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+html.light .calendar-year-select {
+  background: #ffffff;
+}
+html.light .profile-dropdown-menu {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.12), 0 0 1px rgba(0, 0, 0, 0.1);
+}
+html.light .dropdown-divider {
+  background-color: #e2e8f0;
+}
+html.light .dropdown-item {
+  color: #1e293b;
+}
+html.light .dropdown-item:hover {
+  background-color: #f1f5f9;
+  color: var(--primary);
+}
+html.light .action-mini-btn {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+html.light .action-mini-btn:hover {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+

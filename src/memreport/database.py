@@ -48,11 +48,17 @@ async def init_db() -> None:
                 latitude REAL,
                 longitude REAL,
                 location_name TEXT,
+                is_liked INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 UNIQUE(user_id, date)
             )
         """)
+        # Migration for existing reports table (is_liked)
+        try:
+            await db.execute("ALTER TABLE reports ADD COLUMN is_liked INTEGER NOT NULL DEFAULT 0")
+        except Exception:
+            pass
         await db.execute("""
             CREATE INDEX IF NOT EXISTS idx_reports_user_date ON reports(user_id, date)
         """)
@@ -251,14 +257,19 @@ async def get_report(user_id: int, date: str) -> Optional[Dict[str, Any]]:
     async with get_db() as db:
         async with db.execute(
             """
-            SELECT id, date, content_type, content, latitude, longitude, location_name, created_at, updated_at
+            SELECT id, date, content_type, content, latitude, longitude, location_name,
+                   is_liked, created_at, updated_at
             FROM reports
             WHERE user_id = ? AND date = ?
             """,
             (user_id, date),
         ) as cursor:
             row = await cursor.fetchone()
-            return dict(row) if row else None
+            if not row:
+                return None
+            data = dict(row)
+            data["is_liked"] = bool(data.get("is_liked", 0))
+            return data
 
 
 async def get_reports_summary(user_id: int) -> List[Dict[str, Any]]:
@@ -268,6 +279,7 @@ async def get_reports_summary(user_id: int) -> List[Dict[str, Any]]:
             SELECT date, content_type,
                    (latitude IS NOT NULL AND longitude IS NOT NULL) as has_location,
                    latitude, longitude, location_name,
+                   is_liked,
                    LENGTH(content) as size_bytes,
                    updated_at
             FROM reports
@@ -277,7 +289,34 @@ async def get_reports_summary(user_id: int) -> List[Dict[str, Any]]:
             (user_id,),
         ) as cursor:
             rows = await cursor.fetchall()
-            return [dict(r) for r in rows]
+            results = []
+            for r in rows:
+                item = dict(r)
+                item["is_liked"] = bool(item.get("is_liked", 0))
+                results.append(item)
+            return results
+
+
+async def toggle_report_like(user_id: int, date: str) -> Optional[bool]:
+    """Toggle like status for a report. Returns new is_liked state, or None if report does not exist."""
+    now = utc_now_iso()
+    async with get_db() as db:
+        async with db.execute(
+            "SELECT is_liked FROM reports WHERE user_id = ? AND date = ?",
+            (user_id, date),
+        ) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                return None
+            current_liked = bool(row["is_liked"])
+
+        new_liked = not current_liked
+        await db.execute(
+            "UPDATE reports SET is_liked = ?, updated_at = ? WHERE user_id = ? AND date = ?",
+            (1 if new_liked else 0, now, user_id, date),
+        )
+        await db.commit()
+        return new_liked
 
 
 async def delete_report(user_id: int, date: str) -> bool:

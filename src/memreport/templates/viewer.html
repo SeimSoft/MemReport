@@ -3,12 +3,13 @@
 {% block title %}Dashboard | MemReport{% endblock %}
 
 {% block content %}
-<div class="app-layout">
-  <!-- Top Navigation Header -->
+<div class="app-layout" id="app-layout">
+  <!-- Top Navigation Header: Clean, Slim & Focused -->
   <header class="app-header">
     <div class="header-left">
-      <button class="mobile-menu-btn" id="btn-toggle-sidebar" onclick="toggleMobileSidebar()" title="Kalender & Menü umschalten">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <!-- Sidebar Toggle: Desktop Collapse & Mobile Drawer -->
+      <button class="sidebar-toggle-btn" id="btn-sidebar-toggle" onclick="toggleSidebar()" title="Seitenleiste ein-/ausklappen (Shortcut: [ )">
+        <svg class="w-5 h-5 toggle-icon-open" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
         </svg>
       </button>
@@ -23,45 +24,65 @@
         </svg>
         <span class="font-bold text-lg tracking-tight app-brand-title">MemReport</span>
       </div>
-
-      <!-- View Switcher Tabs -->
-      <nav class="view-switcher">
-        <button id="view-btn-report" class="view-tab active" onclick="switchMainView('report')">
-          <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
-          <span>Berichte</span>
-        </button>
-        <button id="view-btn-map" class="view-tab" onclick="switchMainView('map')">
-          <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
-          </svg>
-          <span>Kartenansicht</span>
-        </button>
-      </nav>
     </div>
 
     <div class="header-right">
-      <button class="btn btn-secondary btn-sm" onclick="openShareModal()" title="Freigaben verwalten">
-        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
-        </svg>
-        <span class="hide-on-mobile">Freigaben</span>
-      </button>
-
-      <div class="user-menu">
-        <button class="user-badge-btn" onclick="openProfileModal()" title="Benutzername & Passwort ändern">
+      <!-- Profile Dropdown Menu (Contains Profile, Shares, Theme Switch, and Logout) -->
+      <div class="profile-dropdown-container">
+        <button class="user-badge-btn" id="btn-profile-dropdown" onclick="toggleProfileDropdown(event)" title="Benutzermenü & Einstellungen">
           <span class="user-avatar" id="header-user-avatar">{{ username[0]|upper }}</span>
           <span class="text-sm font-medium header-username-text" id="header-username">{{ username }}</span>
-          <svg class="w-3.5 h-3.5 ml-1 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          <svg class="w-3.5 h-3.5 ml-1 text-slate-400 dropdown-caret" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
         </button>
 
-        <button class="btn btn-ghost btn-sm text-rose-300 hover:text-rose-100 logout-btn" title="Abmelden" onclick="logout()">
-          <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-          </svg>
-          <span class="hide-on-mobile">Abmelden</span>
-        </button>
+        <!-- Dropdown Menu -->
+        <div id="profile-dropdown-menu" class="profile-dropdown-menu hidden" onclick="event.stopPropagation()">
+          <div class="dropdown-user-header">
+            <span class="text-xs text-muted block">Angemeldet als</span>
+            <span class="text-sm font-semibold text-main truncate block">{{ username }}</span>
+          </div>
+
+          <div class="dropdown-divider"></div>
+
+          <!-- Freigaben verwalten -->
+          <button class="dropdown-item" onclick="openShareModal(); closeProfileDropdown();">
+            <svg class="w-4 h-4 text-primary mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
+            </svg>
+            <span>Freigaben verwalten</span>
+          </button>
+
+          <!-- Light / Dark Mode Toggle in Dropdown -->
+          <button class="dropdown-item" onclick="toggleTheme();">
+            <span class="theme-icon-slot flex items-center justify-center mr-2">
+              <svg class="w-4 h-4 theme-icon-moon text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+              </svg>
+              <svg class="w-4 h-4 theme-icon-sun text-amber-400 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+              </svg>
+            </span>
+            <span id="theme-status-text">Design: Dunkel</span>
+          </button>
+
+          <!-- Profil & Passwort ändern -->
+          <button class="dropdown-item" onclick="openProfileModal(); closeProfileDropdown();">
+            <svg class="w-4 h-4 text-slate-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+            </svg>
+            <span>Profil & Passwort</span>
+          </button>
+
+          <div class="dropdown-divider"></div>
+
+          <!-- Abmelden -->
+          <button class="dropdown-item dropdown-item-danger" onclick="logout()">
+            <svg class="w-4 h-4 text-rose-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+            </svg>
+            <span>Abmelden</span>
+          </button>
+        </div>
       </div>
     </div>
   </header>
@@ -73,8 +94,8 @@
   <div class="app-body">
     <!-- Sidebar -->
     <aside class="app-sidebar" id="app-sidebar">
-      <!-- Calendar Widget Card -->
-      <div class="sidebar-card">
+      <!-- 1. Kalender Widget Card (Ganz oben in der Sidebar!) -->
+      <div class="sidebar-card sidebar-calendar-card">
         <div class="calendar-header">
           <div class="calendar-nav-group">
             <button class="btn-calendar-nav" onclick="changeYear(-1)" title="Vorheriges Jahr (–1 Jahr)">«</button>
@@ -102,12 +123,100 @@
           <button class="btn-link text-xs" onclick="jumpToToday()">Heute auswählen</button>
           <div class="calendar-legend">
             <span class="legend-item"><span class="legend-dot report-dot"></span> Bericht</span>
+            <span class="legend-item"><span class="legend-dot like-dot"></span> Favorit</span>
             <span class="legend-item"><span class="legend-dot gps-dot"></span> GPS</span>
           </div>
         </div>
       </div>
 
-      <!-- Quick Reports List Card -->
+      <!-- 2. View Switcher & Kompakte Aktionsleiste -->
+      <div class="sidebar-card sidebar-nav-card">
+        <div class="sidebar-view-switcher">
+          <button id="view-btn-report" class="view-tab active" onclick="switchMainView('report')">
+            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <span>Berichte</span>
+          </button>
+          <button id="view-btn-map" class="view-tab" onclick="switchMainView('map')">
+            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+            </svg>
+            <span>Kartenansicht</span>
+          </button>
+        </div>
+
+        <!-- Kompakte Aktionsleiste für gewählten Tag -->
+        <div class="sidebar-actions-compact mt-2.5 pt-2 border-t border-surface-700" id="sidebar-report-actions">
+          <div class="flex items-center justify-between mb-1.5 px-0.5">
+            <span class="text-[11px] font-semibold text-muted uppercase tracking-wider">Aktionen</span>
+            <span id="sidebar-action-date" class="text-xs text-slate-400 font-mono"></span>
+          </div>
+
+          <div id="view-mode-buttons" class="actions-mini-strip">
+            <!-- Like / Favorit -->
+            <button class="action-mini-btn action-btn-like" id="btn-report-like" onclick="toggleCurrentReportLike()" title="Favorit / Liken">
+              <svg class="w-3.5 h-3.5 heart-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+              </svg>
+              <span id="report-like-text">Favorit</span>
+            </button>
+
+            <!-- Edit -->
+            <button class="action-mini-btn" onclick="enterEditMode()" id="btn-edit-report" title="Inhalt bearbeiten">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+              </svg>
+              <span>Edit</span>
+            </button>
+
+            <!-- Raw / Code -->
+            <button class="action-mini-btn" onclick="toggleRawSource()" id="btn-toggle-raw" title="Quelltext / Vorschau">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+              </svg>
+              <span id="raw-toggle-text">Code</span>
+            </button>
+
+            <!-- Share -->
+            <button class="action-mini-btn" onclick="openShareCurrentDateModal()" id="btn-share-date" title="Diesen Tag teilen">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
+              </svg>
+              <span>Teilen</span>
+            </button>
+
+            <!-- Export -->
+            <button class="action-mini-btn" onclick="downloadReport()" id="btn-export-report" title="Bericht herunterladen">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+              </svg>
+              <span>Export</span>
+            </button>
+
+            <!-- Löschen (mit rotem Trash-Icon und Label) -->
+            <button class="action-mini-btn action-btn-delete" id="btn-delete-report" onclick="deleteCurrentReport()" title="Diesen Bericht löschen">
+              <svg class="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+              <span>Löschen</span>
+            </button>
+          </div>
+
+          <!-- Edit Mode Save / Cancel Buttons -->
+          <div id="edit-mode-buttons" class="hidden flex gap-1.5 mt-2">
+            <button class="btn btn-secondary btn-sm flex-1 text-xs" onclick="cancelEditMode()">Abbrechen</button>
+            <button class="btn btn-primary btn-sm flex-1 text-xs" onclick="saveReportEdit()">
+              <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              Speichern
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Quick Reports List Card -->
       <div class="sidebar-card flex-1 flex flex-col min-h-0">
         <div class="sidebar-card-header">
           <h3 class="text-xs font-semibold text-muted uppercase tracking-wider">Vorhandene Berichte</h3>
@@ -126,8 +235,8 @@
     <main class="app-main">
       <!-- Report View Pane -->
       <div id="pane-report" class="main-pane active">
-        <!-- Top Action Bar for Current Date -->
-        <div class="report-toolbar">
+        <!-- Slim Date Header in Main Workspace -->
+        <div class="report-header-bar">
           <div class="toolbar-date-group">
             <h2 id="current-date-heading" class="current-date-title">Lade...</h2>
             <div id="location-badge-container" class="location-badge" onclick="openLocationModal()" title="GPS-Standort bearbeiten">
@@ -137,52 +246,10 @@
               </svg>
               <span id="location-badge-text">Kein GPS-Standort</span>
             </div>
-          </div>
-
-          <div class="toolbar-actions" id="report-actions">
-            <!-- View Mode buttons -->
-            <div id="view-mode-buttons" class="flex gap-2">
-              <button class="btn btn-secondary btn-sm" onclick="toggleRawSource()" id="btn-toggle-raw" title="Quelltext / Vorschau">
-                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
-                </svg>
-                <span id="raw-toggle-text">Quelltext</span>
-              </button>
-              <button class="btn btn-secondary btn-sm" onclick="enterEditMode()">
-                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                </svg>
-                Bearbeiten
-              </button>
-              <button class="btn btn-secondary btn-sm" onclick="openShareCurrentDateModal()">
-                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/>
-                </svg>
-                Teilen
-              </button>
-              <button class="btn btn-secondary btn-sm" onclick="downloadReport()">
-                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                </svg>
-                Export
-              </button>
-              <button class="btn btn-danger btn-sm" onclick="deleteCurrentReport()" title="Bericht löschen">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                </svg>
-              </button>
-            </div>
-
-            <!-- Edit Mode buttons -->
-            <div id="edit-mode-buttons" class="hidden flex gap-2">
-              <button class="btn btn-secondary btn-sm" onclick="cancelEditMode()">Abbrechen</button>
-              <button class="btn btn-primary btn-sm" onclick="saveReportEdit()">
-                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                </svg>
-                Speichern
-              </button>
-            </div>
+            <!-- Header like badge (shows when report is liked) -->
+            <span id="header-like-badge" class="header-like-badge hidden" title="Favorit">
+              ❤️
+            </span>
           </div>
         </div>
 

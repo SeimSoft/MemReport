@@ -68,6 +68,7 @@ class ReportResponse(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     location_name: Optional[str] = None
+    is_liked: bool = False
     created_at: str
     updated_at: str
 
@@ -79,6 +80,7 @@ class ReportSummary(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     location_name: Optional[str] = None
+    is_liked: bool = False
     size_bytes: int
     updated_at: str
 

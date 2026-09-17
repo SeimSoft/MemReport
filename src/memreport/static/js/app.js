@@ -31,9 +31,17 @@ function formatDateGerman(dateStr) {
 // --- Initialization ---
 
 window.addEventListener('DOMContentLoaded', async () => {
+  initTheme();
   await loadReportsList();
   renderCalendar();
   await loadReportForDate(selectedDateStr);
+});
+
+// Keyboard shortcut to toggle sidebar: '['
+window.addEventListener('keydown', (e) => {
+  if ((e.key === '[' || e.key === ']') && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) {
+    toggleSidebar();
+  }
 });
 
 // --- Reports API & List ---
@@ -71,10 +79,13 @@ function renderSidebarReportsList(list) {
 
   list.forEach(item => {
     const div = document.createElement('div');
-    div.className = `report-item ${item.date === selectedDateStr ? 'active' : ''}`;
+    div.className = `report-item ${item.date === selectedDateStr ? 'active' : ''} ${item.is_liked ? 'is-liked' : ''}`;
     div.id = `report-item-${item.date}`;
     div.onclick = () => selectDate(item.date);
 
+    const hasLikedIcon = item.is_liked
+      ? `<span title="Favorit" class="text-rose-400">❤️</span>`
+      : '';
     const hasGpsIcon = item.has_location
       ? `<span title="GPS hinterlegt" class="text-amber-400">📍</span>`
       : '';
@@ -82,7 +93,10 @@ function renderSidebarReportsList(list) {
     div.innerHTML = `
       <div class="report-item-date">
         <span>${item.date}</span>
-        ${hasGpsIcon}
+        <div class="flex items-center gap-1">
+          ${hasLikedIcon}
+          ${hasGpsIcon}
+        </div>
       </div>
       <div class="report-item-meta">
         <span>${item.content_type.toUpperCase()}</span>
@@ -160,15 +174,27 @@ function renderCalendar() {
     if (dateStr === selectedDateStr) cell.classList.add('day-selected');
 
     // Check if report exists
-    const hasReport = !!reportsMap[dateStr];
-    const hasGps = hasReport && reportsMap[dateStr].has_location;
+    const reportItem = reportsMap[dateStr];
+    const hasReport = !!reportItem;
+    const hasGps = hasReport && reportItem.has_location;
+    const isLiked = hasReport && reportItem.is_liked;
 
-    if (hasReport || hasGps) {
+    if (isLiked) {
+      cell.classList.add('is-liked');
+      cell.title = 'Favorit';
+    }
+
+    if (hasReport || hasGps || isLiked) {
       const ind = document.createElement('div');
       ind.className = 'day-indicators';
       if (hasReport) {
         const dot = document.createElement('span');
         dot.className = 'indicator-dot dot-report';
+        ind.appendChild(dot);
+      }
+      if (isLiked) {
+        const dot = document.createElement('span');
+        dot.className = 'indicator-dot dot-like';
         ind.appendChild(dot);
       }
       if (hasGps) {
@@ -204,7 +230,18 @@ function jumpToToday() {
   selectDate(formatDate(currentDate));
 }
 
-// --- Mobile Sidebar Controls ---
+// --- Sidebar Controls (Desktop Collapse & Mobile Drawer) ---
+
+function toggleSidebar() {
+  if (window.innerWidth <= 900) {
+    toggleMobileSidebar();
+  } else {
+    const layout = document.getElementById('app-layout');
+    if (layout) {
+      layout.classList.toggle('sidebar-collapsed');
+    }
+  }
+}
 
 function toggleMobileSidebar() {
   const sidebar = document.getElementById('app-sidebar');
@@ -276,6 +313,24 @@ function showEmptyState() {
   document.getElementById('report-empty-state').classList.remove('hidden');
 
   document.getElementById('btn-toggle-raw').disabled = true;
+
+  const actionDateEl = document.getElementById('sidebar-action-date');
+  if (actionDateEl) actionDateEl.textContent = selectedDateStr;
+
+  const likeBtn = document.getElementById('btn-report-like');
+  const likeText = document.getElementById('report-like-text');
+  const headerLikeBadge = document.getElementById('header-like-badge');
+  if (likeBtn) {
+    likeBtn.disabled = true;
+    likeBtn.classList.remove('liked');
+    if (likeText) likeText.textContent = 'Favorit';
+  }
+  if (headerLikeBadge) headerLikeBadge.classList.add('hidden');
+
+  ['btn-edit-report', 'btn-share-date', 'btn-export-report', 'btn-delete-report'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = true;
+  });
 }
 
 function showReportContent(report) {
@@ -285,8 +340,70 @@ function showReportContent(report) {
   document.getElementById('report-raw-view').classList.add('hidden');
   document.getElementById('btn-toggle-raw').disabled = false;
 
+  const actionDateEl = document.getElementById('sidebar-action-date');
+  if (actionDateEl) actionDateEl.textContent = report.date;
+
+  const likeBtn = document.getElementById('btn-report-like');
+  const likeText = document.getElementById('report-like-text');
+  const headerLikeBadge = document.getElementById('header-like-badge');
+  if (likeBtn) {
+    likeBtn.disabled = false;
+    if (report.is_liked) {
+      likeBtn.classList.add('liked');
+      if (likeText) likeText.textContent = 'Gemerkt';
+      if (headerLikeBadge) headerLikeBadge.classList.remove('hidden');
+    } else {
+      likeBtn.classList.remove('liked');
+      if (likeText) likeText.textContent = 'Favorit';
+      if (headerLikeBadge) headerLikeBadge.classList.add('hidden');
+    }
+  }
+
+  ['btn-edit-report', 'btn-share-date', 'btn-export-report', 'btn-delete-report'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = false;
+  });
+
   renderMarkdownAndHtml(report.content, document.getElementById('rendered-content'));
   document.getElementById('raw-content-code').textContent = report.content;
+}
+
+async function toggleCurrentReportLike() {
+  if (!currentReport || !currentReport.date) return;
+
+  const likeBtn = document.getElementById('btn-report-like');
+  const likeText = document.getElementById('report-like-text');
+  const headerLikeBadge = document.getElementById('header-like-badge');
+
+  try {
+    const res = await fetch(`/api/reports/${currentReport.date}/like`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (!res.ok) throw new Error('Fehler beim Aktualisieren des Favoriten-Status');
+    const data = await res.json();
+
+    currentReport.is_liked = data.is_liked;
+    if (reportsMap[currentReport.date]) {
+      reportsMap[currentReport.date].is_liked = data.is_liked;
+    }
+
+    if (data.is_liked) {
+      if (likeBtn) likeBtn.classList.add('liked');
+      if (likeText) likeText.textContent = 'Gemerkt';
+      if (headerLikeBadge) headerLikeBadge.classList.remove('hidden');
+    } else {
+      if (likeBtn) likeBtn.classList.remove('liked');
+      if (likeText) likeText.textContent = 'Favorit';
+      if (headerLikeBadge) headerLikeBadge.classList.add('hidden');
+    }
+
+    // Immediately re-render calendar and reports list
+    renderCalendar();
+    renderSidebarReportsList(Object.values(reportsMap));
+  } catch (err) {
+    console.error('Error toggling report like:', err);
+  }
 }
 
 function renderMarkdownAndHtml(rawContent, container) {
@@ -305,7 +422,10 @@ function renderMarkdownAndHtml(rawContent, container) {
   const parsedHtml = marked.parse(rawContent);
   container.innerHTML = parsedHtml;
 
-  // Highlight.js
+  // Render interactive widgets (Leaflet maps, Plotly charts) FIRST before hljs
+  renderInteractiveComponents(container);
+
+  // Highlight.js for remaining code blocks
   container.querySelectorAll('pre code').forEach((block) => {
     hljs.highlightElement(block);
   });
@@ -322,9 +442,6 @@ function renderMarkdownAndHtml(rawContent, container) {
       throwOnError: false
     });
   }
-
-  // Render interactive widgets (Leaflet maps, Plotly charts)
-  renderInteractiveComponents(container);
 }
 
 function toggleRawSource() {
@@ -573,8 +690,8 @@ function switchMainView(view) {
 async function initMainMap() {
   if (!mapInstance) {
     mapInstance = L.map('leaflet-map-container').setView([51.1657, 10.4515], 6);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
       maxZoom: 19
     }).addTo(mapInstance);
 
@@ -1017,9 +1134,9 @@ function renderInteractiveComponents(container) {
         attributionControl: true
       }).setView([51.1657, 10.4515], 13);
 
-      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
-        attribution: "&copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">OpenStreetMap</a> contributors"
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors'
       }).addTo(map);
 
       let latLngs = [];
@@ -1061,8 +1178,20 @@ function renderInteractiveComponents(container) {
           iconAnchor: [12, 12]
         });
         const lastPt = latLngs[latLngs.length - 1];
+
+        let distKm = spec.distance_km;
+        if ((distKm === null || distKm === undefined) && latLngs.length > 1) {
+          let totalMeters = 0;
+          for (let i = 1; i < latLngs.length; i++) {
+            totalMeters += L.latLng(latLngs[i - 1][0], latLngs[i - 1][1]).distanceTo(
+              L.latLng(latLngs[i][0], latLngs[i][1])
+            );
+          }
+          distKm = totalMeters / 1000;
+        }
+
         let finishMsg = `<b>Ziel</b>`;
-        if (spec.distance_km) finishMsg += `<br>Distanz: ${spec.distance_km.toFixed(2)} km`;
+        if (distKm) finishMsg += `<br>Distanz: ${distKm.toFixed(2)} km`;
         if (spec.elevation_gain_m) finishMsg += `<br>Höhenmeter: +${Math.round(spec.elevation_gain_m)} m`;
         L.marker(lastPt, { icon: finishIcon })
           .addTo(map)
@@ -1079,3 +1208,82 @@ function renderInteractiveComponents(container) {
     }
   });
 }
+
+// --- Theme Switcher (Light / Dark) ---
+
+function initTheme() {
+  let theme = 'dark';
+  try {
+    theme = localStorage.getItem('memreport-theme') || 'dark';
+  } catch (e) {}
+  applyTheme(theme);
+}
+
+function applyTheme(theme) {
+  const html = document.documentElement;
+  const moonIcon = document.querySelector('.theme-icon-moon');
+  const sunIcon = document.querySelector('.theme-icon-sun');
+  const themeStatusText = document.getElementById('theme-status-text');
+
+  if (theme === 'light') {
+    html.classList.remove('dark');
+    html.classList.add('light');
+    if (moonIcon) moonIcon.classList.add('hidden');
+    if (sunIcon) sunIcon.classList.remove('hidden');
+    if (themeStatusText) themeStatusText.textContent = 'Design: Hell';
+  } else {
+    html.classList.remove('light');
+    html.classList.add('dark');
+    if (moonIcon) moonIcon.classList.remove('hidden');
+    if (sunIcon) sunIcon.classList.add('hidden');
+    if (themeStatusText) themeStatusText.textContent = 'Design: Dunkel';
+  }
+
+  try {
+    localStorage.setItem('memreport-theme', theme);
+  } catch (e) {}
+
+  if (window.mapInstance) {
+    window.mapInstance.invalidateSize();
+  }
+}
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.classList.contains('light') ? 'light' : 'dark';
+  const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+  applyTheme(newTheme);
+}
+
+function toggleProfileDropdown(event) {
+  if (event) {
+    event.stopPropagation();
+  }
+  const menu = document.getElementById('profile-dropdown-menu');
+  const container = document.querySelector('.profile-dropdown-container');
+  if (!menu) return;
+  const isHidden = menu.classList.contains('hidden');
+  if (isHidden) {
+    menu.classList.remove('hidden');
+    if (container) container.classList.add('open');
+  } else {
+    menu.classList.add('hidden');
+    if (container) container.classList.remove('open');
+  }
+}
+
+function closeProfileDropdown() {
+  const menu = document.getElementById('profile-dropdown-menu');
+  const container = document.querySelector('.profile-dropdown-container');
+  if (menu && !menu.classList.contains('hidden')) {
+    menu.classList.add('hidden');
+    if (container) container.classList.remove('open');
+  }
+}
+
+document.addEventListener('click', (e) => {
+  const container = document.querySelector('.profile-dropdown-container');
+  if (container && !container.contains(e.target)) {
+    closeProfileDropdown();
+  }
+});
+

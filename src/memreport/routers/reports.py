@@ -16,6 +16,7 @@ from memreport.database import (
     save_report,
     update_report,
     delete_report,
+    toggle_report_like,
 )
 from memreport.auth import get_current_user
 
@@ -142,3 +143,22 @@ async def remove_report(
         raise HTTPException(status_code=404, detail=f"No report found for date {date}")
 
     return {"message": f"Report for {date} deleted successfully"}
+
+
+@router.post("/{date}/like")
+async def toggle_like(
+    date: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Toggle the like / favorite status for a daily report."""
+    try:
+        validate_date_str(date)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    new_liked = await toggle_report_like(current_user["id"], date)
+    if new_liked is None:
+        raise HTTPException(status_code=404, detail=f"No report found for date {date}")
+
+    return {"date": date, "is_liked": new_liked}
+

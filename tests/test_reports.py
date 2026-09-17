@@ -122,3 +122,43 @@ async def test_delete_report(async_client, auth_headers):
     # Getting deleted report returns 404
     get_res = await async_client.get("/api/reports/2026-09-22", headers=auth_headers)
     assert get_res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_toggle_report_like(async_client, auth_headers):
+    # Create report
+    await async_client.post(
+        "/api/reports/2026-09-23",
+        headers=auth_headers,
+        json={"content": "Report to be liked", "content_type": "mixed"},
+    )
+
+    # Initial report should not be liked
+    res = await async_client.get("/api/reports/2026-09-23", headers=auth_headers)
+    assert res.status_code == 200
+    assert res.json()["is_liked"] is False
+
+    # Like the report
+    like_res = await async_client.post("/api/reports/2026-09-23/like", headers=auth_headers)
+    assert like_res.status_code == 200
+    assert like_res.json()["is_liked"] is True
+
+    # Check report detail
+    res2 = await async_client.get("/api/reports/2026-09-23", headers=auth_headers)
+    assert res2.json()["is_liked"] is True
+
+    # Check summary list includes is_liked=True
+    list_res = await async_client.get("/api/reports", headers=auth_headers)
+    matched = [r for r in list_res.json() if r["date"] == "2026-09-23"]
+    assert len(matched) == 1
+    assert matched[0]["is_liked"] is True
+
+    # Toggle like again to unlike
+    unlike_res = await async_client.post("/api/reports/2026-09-23/like", headers=auth_headers)
+    assert unlike_res.status_code == 200
+    assert unlike_res.json()["is_liked"] is False
+
+    # Check 404 for nonexistent date
+    bad_res = await async_client.post("/api/reports/1999-01-01/like", headers=auth_headers)
+    assert bad_res.status_code == 404
+
