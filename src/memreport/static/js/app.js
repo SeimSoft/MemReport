@@ -322,6 +322,9 @@ function renderMarkdownAndHtml(rawContent, container) {
       throwOnError: false
     });
   }
+
+  // Render interactive widgets (Leaflet maps, Plotly charts)
+  renderInteractiveComponents(container);
 }
 
 function toggleRawSource() {
@@ -957,4 +960,122 @@ async function logout() {
   }
   // Clear any potential cookies and navigate to /login
   window.location.href = '/logout';
+}
+
+
+function renderInteractiveComponents(container) {
+  if (!container) return;
+
+  // 1. Interactive Plotly Charts
+  container.querySelectorAll("pre code.language-plotly").forEach((block) => {
+    try {
+      const rawJson = block.textContent.trim();
+      const spec = JSON.parse(rawJson);
+      const preEl = block.closest("pre");
+      if (!preEl) return;
+
+      const widget = document.createElement("div");
+      widget.className = "interactive-plotly-widget";
+      const plotId = "plotly-" + Math.random().toString(36).substring(2, 10);
+      widget.id = plotId;
+      preEl.parentNode.replaceChild(widget, preEl);
+
+      const layout = spec.layout || {};
+      layout.paper_bgcolor = layout.paper_bgcolor || "rgba(0,0,0,0)";
+      layout.plot_bgcolor = layout.plot_bgcolor || "rgba(0,0,0,0)";
+      layout.font = Object.assign({ color: "#f8fafc", family: "Inter, sans-serif" }, layout.font || {});
+      layout.autosize = true;
+
+      const config = Object.assign({ responsive: true, displayModeBar: true, displaylogo: false }, spec.config || {});
+
+      if (window.Plotly) {
+        Plotly.newPlot(widget, spec.data || [], layout, config);
+      }
+    } catch (err) {
+      console.warn("Failed rendering interactive plotly widget:", err);
+    }
+  });
+
+  // 2. Interactive Leaflet Route Maps
+  container.querySelectorAll("pre code.language-leaflet, pre code.language-geojson").forEach((block) => {
+    try {
+      const rawJson = block.textContent.trim();
+      const spec = JSON.parse(rawJson);
+      const preEl = block.closest("pre");
+      if (!preEl) return;
+
+      const mapContainer = document.createElement("div");
+      mapContainer.className = "interactive-map-widget";
+      const mapId = "map-" + Math.random().toString(36).substring(2, 10);
+      mapContainer.id = mapId;
+      preEl.parentNode.replaceChild(mapContainer, preEl);
+
+      if (!window.L) return;
+
+      const map = L.map(mapId, {
+        scrollWheelZoom: false,
+        attributionControl: true
+      }).setView([51.1657, 10.4515], 13);
+
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; <a href=\"https://www.openstreetmap.org/copyright\" target=\"_blank\">OpenStreetMap</a> contributors"
+      }).addTo(map);
+
+      let latLngs = [];
+
+      if (spec.type === "FeatureCollection" || spec.type === "Feature" || spec.type === "LineString") {
+        const geoLayer = L.geoJSON(spec, {
+          style: {
+            color: "#0284c7",
+            weight: 5,
+            opacity: 0.95
+          }
+        }).addTo(map);
+        try {
+          map.fitBounds(geoLayer.getBounds(), { padding: [35, 35] });
+        } catch (e) {}
+      } else if (spec.coordinates && Array.isArray(spec.coordinates) && spec.coordinates.length > 0) {
+        latLngs = spec.coordinates.map(pt => [pt[0], pt[1]]);
+        const polyline = L.polyline(latLngs, {
+          color: "#0284c7",
+          weight: 4.5,
+          opacity: 0.95,
+          lineJoin: "round"
+        }).addTo(map);
+
+        const startIcon = L.divIcon({
+          className: "custom-pin",
+          html: "<div class=\"route-marker-pin route-marker-start\" style=\"width:24px;height:24px;\">S</div>",
+          iconSize: [24, 24],
+          iconAnchor: [12, 12]
+        });
+        L.marker(latLngs[0], { icon: startIcon })
+          .addTo(map)
+          .bindPopup(`<b>Start</b><br>${spec.title || "Startpunkt"}`);
+
+        const finishIcon = L.divIcon({
+          className: "custom-pin",
+          html: "<div class=\"route-marker-pin route-marker-finish\" style=\"width:24px;height:24px;\">Z</div>",
+          iconSize: [24, 24],
+          iconAnchor: [12, 12]
+        });
+        const lastPt = latLngs[latLngs.length - 1];
+        let finishMsg = `<b>Ziel</b>`;
+        if (spec.distance_km) finishMsg += `<br>Distanz: ${spec.distance_km.toFixed(2)} km`;
+        if (spec.elevation_gain_m) finishMsg += `<br>Höhenmeter: +${Math.round(spec.elevation_gain_m)} m`;
+        L.marker(lastPt, { icon: finishIcon })
+          .addTo(map)
+          .bindPopup(finishMsg);
+
+        map.fitBounds(polyline.getBounds(), { padding: [35, 35] });
+      }
+
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 300);
+    } catch (err) {
+      console.warn("Failed rendering interactive map widget:", err);
+    }
+  });
 }
