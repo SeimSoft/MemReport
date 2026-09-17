@@ -1905,3 +1905,43 @@ html.light .action-mini-btn:hover {
   border-color: #94a3b8;
 }
 
+/* --- AI Review Button & Spinner --- */
+.action-btn-review {
+  border-color: rgba(139, 92, 246, 0.3) !important;
+}
+.action-btn-review:hover {
+  border-color: rgba(139, 92, 246, 0.6) !important;
+  color: #a78bfa !important;
+  background: rgba(139, 92, 246, 0.08) !important;
+}
+html.light .action-btn-review:hover {
+  background: rgba(139, 92, 246, 0.06) !important;
+  color: #7c3aed !important;
+}
+
+.review-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(139, 92, 246, 0.2);
+  border-top-color: #a78bfa;
+  border-radius: 50%;
+  animation: review-spin 0.7s linear infinite;
+}
+@keyframes review-spin {
+  to { transform: rotate(360deg); }
+}
+
+.alert-error {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+html.light .alert-error {
+  background: rgba(239, 68, 68, 0.08);
+  color: #dc2626;
+  border-color: rgba(239, 68, 68, 0.2);
+}
+

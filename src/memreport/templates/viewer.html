@@ -194,6 +194,14 @@
               <span>Export</span>
             </button>
 
+            <!-- KI Review -->
+            <button class="action-mini-btn action-btn-review" id="btn-review-report" onclick="openReviewModal()" title="KI-Review: Text korrigieren lassen">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+              </svg>
+              <span>Review</span>
+            </button>
+
             <!-- Löschen (mit rotem Trash-Icon und Label) -->
             <button class="action-mini-btn action-btn-delete" id="btn-delete-report" onclick="deleteCurrentReport()" title="Diesen Bericht löschen">
               <svg class="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -575,6 +583,47 @@
     </div>
   </div>
 </div>
+<!-- Review Modal -->
+<div id="review-modal" class="modal-overlay hidden" onclick="handleReviewModalOverlayClick(event)">
+  <div class="modal-content" style="max-width: 520px;">
+    <div class="modal-header">
+      <h3 class="text-base font-bold">✨ KI-Review</h3>
+      <button class="modal-close" onclick="closeReviewModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="text-sm text-muted mb-3">
+        Beschreibe, was am Tagebuchtext korrigiert oder verbessert werden soll. Gemini schreibt nur den Einleitungstext um – Statistiken, GPS-Routen und andere Abschnitte bleiben unverändert.
+      </p>
+      <div class="form-group">
+        <label class="form-label text-xs" for="review-feedback-textarea">Deine Korrekturanweisung</label>
+        <textarea
+          id="review-feedback-textarea"
+          class="form-input"
+          rows="5"
+          placeholder="z.B. 'Der Spaziergang war nicht am Nachmittag sondern am Vormittag. Außerdem war das Wetter sonnig, nicht bewölkt.'"
+          style="resize: vertical; min-height: 100px;"
+        ></textarea>
+      </div>
+      <div id="review-error-alert" class="alert alert-error hidden mt-2"></div>
+      <div id="review-progress" class="hidden mt-3">
+        <div class="flex items-center gap-2">
+          <div class="review-spinner"></div>
+          <span class="text-sm text-muted">Gemini überarbeitet den Text…</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions flex justify-end gap-2 mt-3">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="closeReviewModal()">Abbrechen</button>
+      <button type="button" class="btn btn-primary btn-sm" id="btn-submit-review" onclick="submitReview()">
+        <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+        </svg>
+        Review starten
+      </button>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}

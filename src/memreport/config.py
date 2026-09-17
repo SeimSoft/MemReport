@@ -29,5 +29,8 @@ class Settings(BaseSettings):
     # Optional explicit Base URL (e.g. http://192.168.2.41:8125/memreport or https://reports.example.com)
     base_url: str | None = os.getenv("MEMREPORT_BASE_URL", None)
 
+    # Gemini API key for AI review feature (reads standard env var)
+    gemini_api_key: str | None = os.getenv("GEMINI_API_KEY", None)
+
 
 settings = Settings()

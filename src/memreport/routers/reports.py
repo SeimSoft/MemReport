@@ -7,6 +7,7 @@ from fastapi.responses import FileResponse
 from memreport.models import (
     ReportCreate,
     ReportUpdate,
+    ReviewRequest,
     ReportResponse,
     ReportSummary,
     validate_date_str,
@@ -198,3 +199,45 @@ async def get_report_audio(
         filename=f"report-{date}.mp3",
         headers={"Cache-Control": "public, max-age=86400"},
     )
+
+
+@router.post("/{date}/review", response_model=ReportResponse)
+async def review_report(
+    date: str,
+    review_in: ReviewRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Send diary prose + user feedback to Gemini for AI-assisted correction.
+    The corrected prose replaces the original; stats/routes sections are preserved.
+    """
+    try:
+        validate_date_str(date)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    report = await get_report(current_user["id"], date)
+    if not report:
+        raise HTTPException(status_code=404, detail=f"No report found for date {date}")
+
+    from memreport.review import review_report_with_gemini
+
+    try:
+        updated_content = await review_report_with_gemini(
+            original_content=report["content"],
+            user_feedback=review_in.feedback,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+    updated = await update_report(
+        user_id=current_user["id"],
+        date=date,
+        content=updated_content,
+        content_type=report.get("content_type", "mixed"),
+    )
+
+    cleanup_report_audio(current_user["id"], date)
+    return ReportResponse(**updated)

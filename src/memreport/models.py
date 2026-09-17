@@ -54,6 +54,10 @@ class ReportUpdate(BaseModel):
     content_type: Optional[str] = None
 
 
+class ReviewRequest(BaseModel):
+    feedback: str = Field(..., min_length=1, max_length=2000)
+
+
 class LocationUpdate(BaseModel):
     latitude: float = Field(..., ge=-90.0, le=90.0)
     longitude: float = Field(..., ge=-180.0, le=180.0)

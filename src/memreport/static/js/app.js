@@ -1707,3 +1707,70 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// --- AI Review Modal Logic ---
+
+function openReviewModal() {
+  if (!currentReport) {
+    alert('Kein Bericht zum Reviewen vorhanden.');
+    return;
+  }
+  document.getElementById('review-feedback-textarea').value = '';
+  document.getElementById('review-error-alert').classList.add('hidden');
+  document.getElementById('review-progress').classList.add('hidden');
+  document.getElementById('btn-submit-review').disabled = false;
+  document.getElementById('review-modal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('review-feedback-textarea').focus(), 100);
+}
+
+function closeReviewModal() {
+  document.getElementById('review-modal').classList.add('hidden');
+}
+
+function handleReviewModalOverlayClick(e) {
+  if (e.target === e.currentTarget) {
+    closeReviewModal();
+  }
+}
+
+async function submitReview() {
+  const feedback = document.getElementById('review-feedback-textarea').value.trim();
+  if (!feedback) {
+    document.getElementById('review-feedback-textarea').focus();
+    return;
+  }
+
+  const errorAlert = document.getElementById('review-error-alert');
+  const progress = document.getElementById('review-progress');
+  const submitBtn = document.getElementById('btn-submit-review');
+
+  errorAlert.classList.add('hidden');
+  progress.classList.remove('hidden');
+  submitBtn.disabled = true;
+
+  try {
+    const res = await fetch(`/api/reports/${selectedDateStr}/review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feedback: feedback })
+    });
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({ detail: 'Unbekannter Fehler' }));
+      throw new Error(errData.detail || `HTTP ${res.status}`);
+    }
+
+    const updatedReport = await res.json();
+    currentReport = updatedReport;
+    showReportContent(currentReport);
+    await loadReportsList();
+    renderCalendar();
+    closeReviewModal();
+
+  } catch (err) {
+    errorAlert.textContent = err.message;
+    errorAlert.classList.remove('hidden');
+  } finally {
+    progress.classList.add('hidden');
+    submitBtn.disabled = false;
+  }
+}
