@@ -21,7 +21,7 @@ def _extract_diary_prose(content: str) -> str:
     # Cut at first horizontal divider or level-2+ heading
     split_match = re.search(r"(\n\s*[-*_]{3,}\s*\n|\n\s*##+\s+)", text)
     if split_match:
-        text = text[:split_match.start()]
+        text = text[: split_match.start()]
 
     return text.strip()
 
@@ -35,7 +35,7 @@ def _replace_diary_prose(full_content: str, new_prose: str) -> str:
 
     split_match = re.search(r"(\n\s*[-*_]{3,}\s*\n|\n\s*##+\s+)", content)
     if split_match:
-        suffix = content[split_match.start():]
+        suffix = content[split_match.start() :]
         return new_prose.strip() + suffix
     else:
         # No sections found – entire content is the prose
@@ -45,7 +45,7 @@ def _replace_diary_prose(full_content: str, new_prose: str) -> str:
 async def review_report_with_gemini(
     original_content: str,
     user_feedback: str,
-    model_name: str = "gemini-2.0-flash",
+    model_name: str = "gemini-3.6-flash",
 ) -> str:
     """
     Send the diary prose + user correction instructions to Gemini and
