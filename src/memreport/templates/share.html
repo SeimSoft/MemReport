@@ -130,15 +130,19 @@
   }
 
   async function loadSharedReport() {
+    console.log('[MemReport Share] Initializing loadSharedReport, token:', SHARE_TOKEN, 'API_BASE:', API_BASE);
     try {
       if (!sortedDates || sortedDates.length === 0) {
+        console.log('[MemReport Share] Fetching share info...');
         const res = await fetch(`${API_BASE}/api/public/shares/${SHARE_TOKEN}/info`);
-        if (!res.ok) throw new Error('Freigabelink konnte nicht geladen werden');
+        if (!res.ok) throw new Error('Freigabelink konnte nicht geladen werden (Status ' + res.status + ')');
         const info = await res.json();
         sortedDates = (info.dates || []).sort();
+        console.log('[MemReport Share] Loaded dates from info:', sortedDates);
       }
 
       if (sortedDates.length === 0) {
+        console.warn('[MemReport Share] No dates available for this share');
         document.getElementById('share-rendered-content').innerHTML = `
           <div class="alert alert-info">Keine Berichte für diesen Freigabelink vorhanden.</div>
         `;
@@ -156,8 +160,10 @@
         }
       } catch (e) {}
 
+      console.log('[MemReport Share] Selecting initial date:', initialDate);
       selectSharedDate(initialDate);
     } catch (err) {
+      console.error('[MemReport Share] Error initializing:', err);
       document.getElementById('share-rendered-content').innerHTML = `
         <div class="alert alert-error">Fehler beim Laden des Berichts: ${err.message}</div>
       `;
@@ -233,7 +239,9 @@
     headingEl.textContent = formatDateGerman(date);
     resetShareAudio();
 
+    console.log('[MemReport Share] selectSharedDate:', date);
     if (reportsCache[date]) {
+      console.log('[MemReport Share] Report retrieved from cache for date:', date);
       displayReport(reportsCache[date]);
       return;
     }
@@ -250,17 +258,21 @@
     `;
 
     try {
-      const res = await fetch(`${API_BASE}/api/public/shares/${SHARE_TOKEN}/reports/${date}`);
+      const fetchUrl = `${API_BASE}/api/public/shares/${SHARE_TOKEN}/reports/${date}`;
+      console.log('[MemReport Share] Fetching report URL:', fetchUrl);
+      const res = await fetch(fetchUrl);
       if (!res.ok) {
-        throw new Error('Bericht konnte nicht geladen werden');
+        throw new Error(`Bericht konnte nicht geladen werden (HTTP ${res.status})`);
       }
       const report = await res.json();
+      console.log('[MemReport Share] Report received for date:', date, 'length:', report?.content?.length);
       reportsCache[date] = report;
 
       if (currentSelectedDate === date) {
         displayReport(report);
       }
     } catch (err) {
+      console.error('[MemReport Share] Fetch report error:', err);
       if (currentSelectedDate === date) {
         contentEl.innerHTML = `
           <div class="alert alert-error">Fehler beim Laden des Berichts: ${err.message}</div>
@@ -482,8 +494,6 @@
       initShareMap();
     }
   }
-
-  let shareRoutesLayer = null;
 
   function extractRoutesFromContent(content) {
     const routes = [];

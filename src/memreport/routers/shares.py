@@ -1,10 +1,13 @@
 """Shares router for MemReport."""
 
 import secrets
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse
+
+logger = logging.getLogger(__name__)
 
 from memreport.config import settings
 from memreport.tts import get_or_create_report_audio
@@ -173,8 +176,10 @@ async def get_public_share_info(token: str):
     Lightweight metadata endpoint: returns title, date list, share_all flag,
     and expires_at in a fraction of a millisecond without reading any report content.
     """
+    logger.info(f"[Public Share] Info requested for token={token[:8]}...")
     share_info = await get_share_info_by_token(token)
     if not share_info:
+        logger.warning(f"[Public Share] Share not found or expired for token={token[:8]}...")
         raise HTTPException(status_code=404, detail="Shared report not found or link expired")
     return {
         "title": share_info["title"],
@@ -189,8 +194,10 @@ async def get_public_share_single_report(token: str, date: str):
     """
     Fetch ONLY the requested date's report content. Fast, dynamic, and bandwidth-friendly.
     """
+    logger.info(f"[Public Share] Single report requested for token={token[:8]}... date={date}")
     report = await get_share_report_by_date(token, date)
     if not report:
+        logger.warning(f"[Public Share] Report not found for token={token[:8]}... date={date}")
         raise HTTPException(status_code=404, detail=f"Report for {date} not found or not in this share")
     return ReportResponse(**report)
 
@@ -200,8 +207,10 @@ async def get_public_share_locations(token: str):
     """
     Fetch GPS coordinates and route tracks for shared dates (for Map view) without full report markdown.
     """
+    logger.info(f"[Public Share] Locations requested for token={token[:8]}...")
     locations = await get_share_locations(token)
     if locations is None:
+        logger.warning(f"[Public Share] Locations failed: token={token[:8]}... not found or expired")
         raise HTTPException(status_code=404, detail="Shared report not found or link expired")
     return [LocationItem(**loc) for loc in locations]
 
