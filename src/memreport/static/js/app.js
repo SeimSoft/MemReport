@@ -33,7 +33,7 @@ function formatDateGerman(dateStr) {
 
 // --- Initialization ---
 
-window.addEventListener('DOMContentLoaded', async () => {
+async function initApp() {
   initTheme();
 
   // Check URL query param ?date=YYYY-MM-DD
@@ -48,7 +48,13 @@ window.addEventListener('DOMContentLoaded', async () => {
   await loadReportsList();
   renderCalendar();
   await loadReportForDate(selectedDateStr);
-});
+}
+
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
 
 window.addEventListener('popstate', (e) => {
   const urlParams = new URLSearchParams(window.location.search);

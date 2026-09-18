@@ -295,31 +295,42 @@
     // Parse Markdown (mixed HTML allowed)
     marked.setOptions({
       breaks: true,
-      gfm: true,
-      headerIds: true,
+      gfm: true
     });
 
     let html = marked.parse(rawText);
     container.innerHTML = html;
 
     // Syntax highlight code blocks
-    container.querySelectorAll('pre code').forEach((block) => {
-      hljs.highlightElement(block);
-    });
+    try {
+      container.querySelectorAll('pre code').forEach((block) => {
+        hljs.highlightElement(block);
+      });
+    } catch (e) {
+      console.warn("Syntax highlighting failed:", e);
+    }
 
     // KaTeX math rendering
-    if (window.renderMathInElement) {
-      renderMathInElement(container, {
-        delimiters: [
-          { left: '$$', right: '$$', display: true },
-          { left: '$', right: '$', display: false },
-          { left: '\\(', right: '\\)', display: false },
-          { left: '\\[', right: '\\]', display: true }
-        ],
-        throwOnError: false
-      });
+    try {
+      if (window.renderMathInElement) {
+        renderMathInElement(container, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '\\[', right: '\\]', display: true }
+          ],
+          throwOnError: false
+        });
+      }
+    } catch (e) {
+      console.warn("KaTeX rendering failed:", e);
     }
-    renderInteractiveComponents(container);
+    try {
+      renderInteractiveComponents(container);
+    } catch (e) {
+      console.warn("Interactive components rendering failed:", e);
+    }
   }
 
   function renderInteractiveComponents(container) {
@@ -801,6 +812,10 @@
     };
   }
 
-  window.addEventListener('DOMContentLoaded', loadSharedReport);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadSharedReport);
+  } else {
+    loadSharedReport();
+  }
 </script>
 {% endblock %}
