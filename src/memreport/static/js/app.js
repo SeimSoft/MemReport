@@ -25,8 +25,10 @@ function formatDate(d) {
 function formatDateGerman(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number);
   const dateObj = new Date(y, m - 1, d);
-  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-  return dateObj.toLocaleDateString('de-DE', options);
+  const weekdays = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+  const w = weekdays[dateObj.getDay()];
+  const yy = String(y).slice(-2);
+  return `${w}, ${padZero(d)}.${padZero(m)}.${yy}`;
 }
 
 // --- Initialization ---
@@ -958,16 +960,6 @@ async function initMainMap() {
 
     // Zoom listener for efficient route rendering
     mapInstance.on('zoomend', updateMapRoutesVisibility);
-
-    // Click on map to set coordinates for current date
-    mapInstance.on('click', (e) => {
-      const { lat, lng } = e.latlng;
-      if (confirm(`Möchtest du die Koordinaten ${lat.toFixed(4)}, ${lng.toFixed(4)} dem Bericht ${selectedDateStr} zuweisen?`)) {
-        document.getElementById('loc-lat').value = lat.toFixed(6);
-        document.getElementById('loc-lon').value = lng.toFixed(6);
-        saveReportLocation();
-      }
-    });
   }
 
   setTimeout(() => {
