@@ -102,11 +102,19 @@
 {% block scripts %}
 <script>
   const SHARE_TOKEN = "{{ token }}";
-  let sharedData = null;
+  // Dynamically resolve base URL path to support reverse proxy subpaths like /memreport
+  const sharePathIdx = window.location.pathname.indexOf('/share/');
+  const API_BASE = sharePathIdx >= 0 ? window.location.pathname.substring(0, sharePathIdx) : '';
+
   let currentSelectedDate = null;
-  let sortedDates = [];
+  let sortedDates = {% if dates_json %}{{ dates_json | safe }}{% else %}[]{% endif %};
+  if (Array.isArray(sortedDates)) sortedDates.sort();
+  const reportsCache = {};
+  let shareLocationsData = null;
+  let isMapDataLoading = false;
   let shareMap = null;
   let shareMarkersLayer = null;
+  let shareRoutesLayer = null;
 
   function padZero(num) {
     return String(num).padStart(2, '0');
@@ -123,12 +131,14 @@
 
   async function loadSharedReport() {
     try {
-      const res = await fetch(`/api/public/shares/${SHARE_TOKEN}`);
-      if (!res.ok) throw new Error('Bericht konnte nicht geladen werden');
-      sharedData = await res.json();
+      if (!sortedDates || sortedDates.length === 0) {
+        const res = await fetch(`${API_BASE}/api/public/shares/${SHARE_TOKEN}/info`);
+        if (!res.ok) throw new Error('Freigabelink konnte nicht geladen werden');
+        const info = await res.json();
+        sortedDates = (info.dates || []).sort();
+      }
 
-      const dates = sharedData.dates || [];
-      if (dates.length === 0) {
+      if (sortedDates.length === 0) {
         document.getElementById('share-rendered-content').innerHTML = `
           <div class="alert alert-info">Keine Berichte für diesen Freigabelink vorhanden.</div>
         `;
@@ -136,8 +146,6 @@
         updateShareNavButtons();
         return;
       }
-
-      sortedDates = [...dates].sort();
 
       let initialDate = sortedDates[0];
       try {
@@ -206,7 +214,8 @@
     }
   }
 
-  function selectSharedDate(date) {
+  async function selectSharedDate(date) {
+    if (!date) return;
     currentSelectedDate = date;
     updateShareNavButtons();
 
@@ -216,30 +225,65 @@
       window.history.replaceState({ date }, '', url.toString());
     } catch (e) {}
 
-    const report = sharedData.reports[date];
     const headingEl = document.getElementById('share-current-date-heading');
     const locContainer = document.getElementById('share-location-badge-container');
     const locText = document.getElementById('share-location-text');
     const contentEl = document.getElementById('share-rendered-content');
 
     headingEl.textContent = formatDateGerman(date);
-
     resetShareAudio();
 
-    if (report && report.latitude && report.longitude) {
-      locContainer.classList.remove('hidden');
-      locText.textContent = report.location_name || 'Standort hinterlegt';
-      locContainer.title = `Standort: ${report.location_name || ''} (GPS: ${report.latitude.toFixed(4)}, ${report.longitude.toFixed(4)})`;
-    } else {
-      locContainer.classList.add('hidden');
-    }
-
-    if (!report) {
-      contentEl.innerHTML = '<p class="text-muted">Kein Inhalt für dieses Datum verfügbar.</p>';
+    if (reportsCache[date]) {
+      displayReport(reportsCache[date]);
       return;
     }
 
-    renderContent(report.content, contentEl);
+    // Show lightweight loading indicator while fetching only this single report
+    contentEl.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5rem 1rem;color:var(--text-muted);gap:0.75rem;">
+        <svg style="width:28px;height:28px;animation:spin 1s linear infinite;" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-opacity="0.25"></circle>
+          <path fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+        </svg>
+        <span style="font-size:0.875rem;">Lade Bericht für ${formatDateGerman(date)}...</span>
+      </div>
+    `;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/public/shares/${SHARE_TOKEN}/reports/${date}`);
+      if (!res.ok) {
+        throw new Error('Bericht konnte nicht geladen werden');
+      }
+      const report = await res.json();
+      reportsCache[date] = report;
+
+      if (currentSelectedDate === date) {
+        displayReport(report);
+      }
+    } catch (err) {
+      if (currentSelectedDate === date) {
+        contentEl.innerHTML = `
+          <div class="alert alert-error">Fehler beim Laden des Berichts: ${err.message}</div>
+        `;
+      }
+    }
+
+    function displayReport(report) {
+      if (report && report.latitude && report.longitude) {
+        locContainer.classList.remove('hidden');
+        locText.textContent = report.location_name || 'Standort hinterlegt';
+        locContainer.title = `Standort: ${report.location_name || ''} (GPS: ${report.latitude.toFixed(4)}, ${report.longitude.toFixed(4)})`;
+      } else {
+        locContainer.classList.add('hidden');
+      }
+
+      if (!report || !report.content) {
+        contentEl.innerHTML = '<p class="text-muted">Kein Inhalt für dieses Datum verfügbar.</p>';
+        return;
+      }
+
+      renderContent(report.content, contentEl);
+    }
   }
 
   function renderContent(rawText, container) {
@@ -539,39 +583,53 @@
     }, 200);
   }
 
-  function renderShareMapMarkers() {
+  async function renderShareMapMarkers() {
     if (!shareMarkersLayer || !shareRoutesLayer) return;
     shareMarkersLayer.clearLayers();
     shareRoutesLayer.clearLayers();
 
+    if (!shareLocationsData) {
+      if (isMapDataLoading) return;
+      isMapDataLoading = true;
+      try {
+        const res = await fetch(`${API_BASE}/api/public/shares/${SHARE_TOKEN}/locations`);
+        if (res.ok) {
+          shareLocationsData = await res.json();
+        }
+      } catch (err) {
+        console.error('Fehler beim Laden der Kartendaten:', err);
+      } finally {
+        isMapDataLoading = false;
+      }
+    }
+
+    if (!shareLocationsData || !shareLocationsData.length) return;
+
     const bounds = [];
 
-    Object.entries(sharedData.reports).forEach(([date, rep]) => {
-      const routes = extractRoutesFromContent(rep.content);
-
-      let lat = rep.latitude;
-      let lon = rep.longitude;
-      if ((lat === null || lon === null || lat === undefined || lon === undefined) && routes.length > 0) {
-        lat = routes[0].coordinates[0][0];
-        lon = routes[0].coordinates[0][1];
-      }
+    shareLocationsData.forEach(item => {
+      const date = item.date;
+      const routes = item.routes || [];
+      const lat = item.latitude;
+      const lon = item.longitude;
+      const locName = item.location_name || item.name || 'Standort';
 
       if (lat && lon) {
         bounds.push([lat, lon]);
 
         const singleIcon = L.divIcon({
-          html: `<div class="count-bubble cluster-single" title="${rep.location_name || date}">1</div>`,
+          html: `<div class="count-bubble cluster-single" title="${locName}">1</div>`,
           className: 'count-cluster-icon',
           iconSize: [36, 36],
           iconAnchor: [18, 18]
         });
 
         const marker = L.marker([lat, lon], { icon: singleIcon });
-        marker._reportData = Object.assign({}, rep, { date: date });
+        marker._reportData = { date: date, location_name: locName };
         marker.bindPopup(`
           <div class="map-popup-card">
             <div class="text-xs font-bold text-primary mb-1">${date}</div>
-            <h4 class="font-bold text-sm mb-1">${rep.location_name || 'Standort'}</h4>
+            <h4 class="font-bold text-sm mb-1">${locName}</h4>
             <button class="btn btn-primary btn-xs w-full mt-2" onclick="selectAndShowSharedReport('${date}')">
               Bericht ansehen
             </button>
@@ -653,8 +711,8 @@
   }
 
   function downloadCurrentSharedReport() {
-    if (!currentSelectedDate || !sharedData.reports[currentSelectedDate]) return;
-    const report = sharedData.reports[currentSelectedDate];
+    if (!currentSelectedDate || !reportsCache[currentSelectedDate]) return;
+    const report = reportsCache[currentSelectedDate];
     const blob = new Blob([report.content], { type: 'text/markdown;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -700,7 +758,7 @@
     }
 
     // Resume if paused and same source
-    const targetSrc = `/api/public/shares/${SHARE_TOKEN}/reports/${currentSelectedDate}/audio`;
+    const targetSrc = `${API_BASE}/api/public/shares/${SHARE_TOKEN}/reports/${currentSelectedDate}/audio`;
     if (audio.src && audio.src.endsWith(targetSrc) && audio.currentTime > 0 && !audio.ended) {
       audio.play();
       btn.classList.add('is-playing');

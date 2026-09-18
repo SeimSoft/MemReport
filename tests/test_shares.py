@@ -139,3 +139,66 @@ async def test_update_share_link(async_client, auth_headers):
     assert "2026-09-05" in pub.json()["reports"]
     assert "2026-09-06" in pub.json()["reports"]
 
+
+@pytest.mark.asyncio
+async def test_dynamic_public_share_endpoints(async_client, auth_headers):
+    # Create report with location and route
+    await async_client.post(
+        "/api/reports/2026-09-20",
+        headers=auth_headers,
+        json={"content": "Report 20th with route", "content_type": "markdown"},
+    )
+    await async_client.put(
+        "/api/reports/2026-09-20/location",
+        headers=auth_headers,
+        json={"latitude": 47.85, "longitude": 12.12, "name": "Rosenheim"},
+    )
+    await async_client.post(
+        "/api/reports/2026-09-21",
+        headers=auth_headers,
+        json={"content": "Report 21st", "content_type": "markdown"},
+    )
+
+    create_res = await async_client.post(
+        "/api/shares",
+        headers=auth_headers,
+        json={"dates": ["2026-09-20", "2026-09-21"], "title": "Dynamic Test Share"},
+    )
+    token = create_res.json()["token"]
+
+    # 1. Info endpoint: lightweight metadata
+    info_res = await async_client.get(f"/api/public/shares/{token}/info")
+    assert info_res.status_code == 200
+    info = info_res.json()
+    assert info["title"] == "Dynamic Test Share"
+    assert info["dates"] == ["2026-09-20", "2026-09-21"]
+    assert "reports" not in info
+
+    # 2. Single report endpoint
+    single_res = await async_client.get(f"/api/public/shares/{token}/reports/2026-09-20")
+    assert single_res.status_code == 200
+    single = single_res.json()
+    assert single["date"] == "2026-09-20"
+    assert single["content"] == "Report 20th with route"
+    assert single["latitude"] == 47.85
+    assert single["location_name"] == "Rosenheim"
+
+    # Single report for date not in share returns 404
+    not_in_share = await async_client.get(f"/api/public/shares/{token}/reports/2026-09-01")
+    assert not_in_share.status_code == 404
+
+    # 3. Locations endpoint: map data without full report content
+    loc_res = await async_client.get(f"/api/public/shares/{token}/locations")
+    assert loc_res.status_code == 200
+    locs = loc_res.json()
+    assert len(locs) >= 1
+    assert any(l["date"] == "2026-09-20" and l["location_name"] == "Rosenheim" for l in locs)
+
+    # 4. Filtered public share by date query param
+    filtered_res = await async_client.get(f"/api/public/shares/{token}?date=2026-09-20")
+    assert filtered_res.status_code == 200
+    filtered = filtered_res.json()
+    assert "2026-09-20" in filtered["reports"]
+    assert "2026-09-21" not in filtered["reports"]
+
+

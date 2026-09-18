@@ -5,8 +5,9 @@ from fastapi import APIRouter, Request, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+import json
 from memreport.auth import get_current_user_optional
-from memreport.database import get_share_by_token
+from memreport.database import get_share_info_by_token
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -68,7 +69,7 @@ async def viewer_page(
 
 @router.get("/share/{token}", response_class=HTMLResponse)
 async def public_share_page(request: Request, token: str):
-    share = await get_share_by_token(token)
+    share = await get_share_info_by_token(token)
     if not share:
         return templates.TemplateResponse(
             request=request,
@@ -86,6 +87,7 @@ async def public_share_page(request: Request, token: str):
             "token": token,
             "title": share["title"] or "Geteilte Berichte",
             "dates": share["dates"],
+            "dates_json": json.dumps(share["dates"]),
             "expires_at": share["expires_at"],
         },
     )

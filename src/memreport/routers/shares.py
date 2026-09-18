@@ -14,6 +14,7 @@ from memreport.models import (
     ShareResponse,
     PublicShareData,
     ReportResponse,
+    LocationItem,
 )
 from memreport.database import (
     create_share,
@@ -21,6 +22,9 @@ from memreport.database import (
     get_user_shares,
     delete_share,
     get_share_by_token,
+    get_share_info_by_token,
+    get_share_report_by_date,
+    get_share_locations,
 )
 from memreport.auth import get_current_user
 
@@ -163,12 +167,69 @@ async def revoke_share_link(
     return {"message": "Share link revoked successfully"}
 
 
+@router.get("/api/public/shares/{token}/info")
+async def get_public_share_info(token: str):
+    """
+    Lightweight metadata endpoint: returns title, date list, share_all flag,
+    and expires_at in a fraction of a millisecond without reading any report content.
+    """
+    share_info = await get_share_info_by_token(token)
+    if not share_info:
+        raise HTTPException(status_code=404, detail="Shared report not found or link expired")
+    return {
+        "title": share_info["title"],
+        "dates": share_info["dates"],
+        "share_all": share_info["share_all"],
+        "expires_at": share_info["expires_at"],
+    }
+
+
+@router.get("/api/public/shares/{token}/reports/{date}", response_model=ReportResponse)
+async def get_public_share_single_report(token: str, date: str):
+    """
+    Fetch ONLY the requested date's report content. Fast, dynamic, and bandwidth-friendly.
+    """
+    report = await get_share_report_by_date(token, date)
+    if not report:
+        raise HTTPException(status_code=404, detail=f"Report for {date} not found or not in this share")
+    return ReportResponse(**report)
+
+
+@router.get("/api/public/shares/{token}/locations", response_model=List[LocationItem])
+async def get_public_share_locations(token: str):
+    """
+    Fetch GPS coordinates and route tracks for shared dates (for Map view) without full report markdown.
+    """
+    locations = await get_share_locations(token)
+    if locations is None:
+        raise HTTPException(status_code=404, detail="Shared report not found or link expired")
+    return [LocationItem(**loc) for loc in locations]
+
+
 @router.get("/api/public/shares/{token}", response_model=PublicShareData)
-async def get_public_share(token: str):
+async def get_public_share(token: str, date: Optional[str] = None):
     """
     Public API endpoint to retrieve reports associated with a share token.
-    No credentials/authentication required.
+    If 'date' query parameter is given, only that single report is returned in reports map.
+    If omitted, all reports are returned for full backward compatibility.
     """
+    if date:
+        share_info = await get_share_info_by_token(token)
+        if not share_info:
+            raise HTTPException(status_code=404, detail="Shared report not found or link expired")
+        report = await get_share_report_by_date(token, date)
+        reports_map = {}
+        if report:
+            reports_map[date] = ReportResponse(**report)
+        return PublicShareData(
+            title=share_info["title"],
+            dates=share_info["dates"],
+            share_all=share_info.get("share_all", False),
+            reports=reports_map,
+            expires_at=share_info["expires_at"],
+        )
+
+    # Full reports dictionary (for backward compatibility)
     share = await get_share_by_token(token)
     if not share:
         raise HTTPException(status_code=404, detail="Shared report not found or link expired")
@@ -189,13 +250,9 @@ async def get_public_share(token: str):
 @router.get("/api/public/shares/{token}/reports/{date}/audio")
 async def get_public_share_report_audio(token: str, date: str, lang: str = "de"):
     """Public audio stream for a report contained within a shared link."""
-    share = await get_share_by_token(token)
-    if not share:
-        raise HTTPException(status_code=404, detail="Shared report not found or link expired")
-
-    report_dict = share["reports"].get(date)
+    report_dict = await get_share_report_by_date(token, date)
     if not report_dict:
-        raise HTTPException(status_code=404, detail="Report for date not included in this share")
+        raise HTTPException(status_code=404, detail="Report for date not included in this share or link expired")
 
     audio_path = await get_or_create_report_audio(
         user_id=report_dict["user_id"],

@@ -666,3 +666,129 @@ async def get_share_by_token(token: str) -> Optional[Dict[str, Any]]:
                 "created_at": share["created_at"],
                 "expires_at": share["expires_at"],
             }
+
+
+async def get_share_info_by_token(token: str) -> Optional[Dict[str, Any]]:
+    """Retrieve lightweight share metadata without reading full report content."""
+    now = utc_now_iso()
+    async with get_db() as db:
+        async with db.execute(
+            """
+            SELECT id, user_id, token, dates, title, share_all, created_at, expires_at
+            FROM shares
+            WHERE token = ?
+            """,
+            (token,),
+        ) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                return None
+            share = dict(row)
+
+            # Check expiration
+            if share["expires_at"] and share["expires_at"] < now:
+                return None
+
+            user_id = share["user_id"]
+            is_share_all = bool(share.get("share_all", 0))
+
+            if is_share_all:
+                async with db.execute(
+                    "SELECT date FROM reports WHERE user_id = ? ORDER BY date ASC",
+                    (user_id,),
+                ) as rep_cursor:
+                    rep_rows = await rep_cursor.fetchall()
+                    dates = [r["date"] for r in rep_rows]
+            else:
+                try:
+                    dates = json.loads(share["dates"])
+                except Exception:
+                    dates = []
+
+            return {
+                "id": share["id"],
+                "user_id": share["user_id"],
+                "token": share["token"],
+                "title": share["title"],
+                "dates": dates,
+                "share_all": is_share_all,
+                "created_at": share["created_at"],
+                "expires_at": share["expires_at"],
+            }
+
+
+async def get_share_report_by_date(token: str, date: str) -> Optional[Dict[str, Any]]:
+    """Retrieve a single report for a specific date within a shared token."""
+    share_info = await get_share_info_by_token(token)
+    if not share_info:
+        return None
+
+    if date not in share_info["dates"]:
+        return None
+
+    async with get_db() as db:
+        async with db.execute(
+            """
+            SELECT id, user_id, date, content_type, content, latitude, longitude, location_name, created_at, updated_at
+            FROM reports
+            WHERE user_id = ? AND date = ?
+            """,
+            (share_info["user_id"], date),
+        ) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                return None
+            item = dict(row)
+            if (item["latitude"] is None or item["longitude"] is None) and item.get("content"):
+                routes = extract_routes_from_markdown(item["content"])
+                if routes:
+                    first_pt = routes[0]["coordinates"][0]
+                    item["latitude"] = float(first_pt[0])
+                    item["longitude"] = float(first_pt[1])
+                    if not item.get("location_name"):
+                        item["location_name"] = routes[0].get("title") or "Route"
+            return item
+
+
+async def get_share_locations(token: str) -> Optional[List[Dict[str, Any]]]:
+    """Retrieve map coordinates and route lines for dates in a share without report content."""
+    share_info = await get_share_info_by_token(token)
+    if not share_info:
+        return None
+
+    dates = share_info["dates"]
+    if not dates:
+        return []
+
+    user_id = share_info["user_id"]
+    placeholders = ",".join(["?"] * len(dates))
+
+    async with get_db() as db:
+        async with db.execute(
+            f"""
+            SELECT date, latitude, longitude, location_name, content_type, content
+            FROM reports
+            WHERE user_id = ? AND date IN ({placeholders})
+            ORDER BY date DESC
+            """,
+            [user_id] + dates,
+        ) as cursor:
+            rows = await cursor.fetchall()
+            results = []
+            for r in rows:
+                item = dict(r)
+                content = item.pop("content", "") or ""
+                routes = extract_routes_from_markdown(content)
+
+                if (item["latitude"] is None or item["longitude"] is None) and routes:
+                    first_coord = routes[0]["coordinates"][0]
+                    item["latitude"] = float(first_coord[0])
+                    item["longitude"] = float(first_coord[1])
+                    if not item.get("location_name"):
+                        item["location_name"] = routes[0].get("title") or "Route"
+
+                if item["latitude"] is not None and item["longitude"] is not None:
+                    item["snippet"] = content[:140] if content else ""
+                    item["routes"] = routes if routes else None
+                    results.append(item)
+            return results
