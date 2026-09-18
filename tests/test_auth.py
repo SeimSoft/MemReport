@@ -137,3 +137,33 @@ async def test_logout_endpoint(async_client):
     res = await async_client.post("/api/auth/logout")
     assert res.status_code == 200
     assert res.json()["message"] == "Logged out successfully"
+
+
+@pytest.mark.asyncio
+async def test_update_user_theme(async_client, auth_headers):
+    res_me = await async_client.get("/api/auth/me", headers=auth_headers)
+    assert res_me.status_code == 200
+    assert res_me.json()["theme"] == "dark"
+
+    res_update = await async_client.put(
+        "/api/auth/me/theme",
+        headers=auth_headers,
+        json={"theme": "light"},
+    )
+    assert res_update.status_code == 200
+    assert res_update.json()["theme"] == "light"
+
+    res_me2 = await async_client.get("/api/auth/me", headers=auth_headers)
+    assert res_me2.status_code == 200
+    assert res_me2.json()["theme"] == "light"
+
+
+@pytest.mark.asyncio
+async def test_update_user_theme_invalid_fails(async_client, auth_headers):
+    res = await async_client.put(
+        "/api/auth/me/theme",
+        headers=auth_headers,
+        json={"theme": "neon-green"},
+    )
+    assert res.status_code == 422
+

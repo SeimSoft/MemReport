@@ -8,6 +8,12 @@
   <script>
     (function() {
       try {
+        {% if user_theme %}
+        const serverTheme = "{{ user_theme }}";
+        if (serverTheme) {
+          try { localStorage.setItem('memreport-theme', serverTheme); } catch (e) {}
+        }
+        {% endif %}
         const theme = localStorage.getItem('memreport-theme');
         if (theme === 'light') {
           document.documentElement.classList.remove('dark');

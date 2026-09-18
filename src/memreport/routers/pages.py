@@ -61,6 +61,7 @@ async def viewer_page(
             "username": current_user["username"],
             "user_id": current_user["id"],
             "is_admin": is_admin,
+            "user_theme": current_user.get("theme") or "dark",
         },
     )
 

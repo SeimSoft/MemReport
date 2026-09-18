@@ -30,12 +30,17 @@ async def init_db() -> None:
                 username TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
                 is_admin INTEGER NOT NULL DEFAULT 0,
+                theme TEXT NOT NULL DEFAULT 'dark',
                 created_at TEXT NOT NULL
             )
         """)
         # Migration for existing users table
         try:
             await db.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
+        except Exception:
+            pass
+        try:
+            await db.execute("ALTER TABLE users ADD COLUMN theme TEXT NOT NULL DEFAULT 'dark'")
         except Exception:
             pass
 
@@ -87,13 +92,13 @@ async def init_db() -> None:
 
 # --- User Queries ---
 
-async def create_user(username: str, password_hash: str, is_admin: bool = False) -> Optional[int]:
+async def create_user(username: str, password_hash: str, is_admin: bool = False, theme: str = "dark") -> Optional[int]:
     now = utc_now_iso()
     async with get_db() as db:
         try:
             cursor = await db.execute(
-                "INSERT INTO users (username, password_hash, is_admin, created_at) VALUES (?, ?, ?, ?)",
-                (username, password_hash, 1 if is_admin else 0, now),
+                "INSERT INTO users (username, password_hash, is_admin, theme, created_at) VALUES (?, ?, ?, ?, ?)",
+                (username, password_hash, 1 if is_admin else 0, theme, now),
             )
             await db.commit()
             return cursor.lastrowid
@@ -104,7 +109,7 @@ async def create_user(username: str, password_hash: str, is_admin: bool = False)
 async def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
     async with get_db() as db:
         async with db.execute(
-            "SELECT id, username, password_hash, is_admin, created_at FROM users WHERE username = ?",
+            "SELECT id, username, password_hash, is_admin, theme, created_at FROM users WHERE username = ?",
             (username,),
         ) as cursor:
             row = await cursor.fetchone()
@@ -114,7 +119,7 @@ async def get_user_by_username(username: str) -> Optional[Dict[str, Any]]:
 async def get_user_by_id(user_id: int) -> Optional[Dict[str, Any]]:
     async with get_db() as db:
         async with db.execute(
-            "SELECT id, username, password_hash, is_admin, created_at FROM users WHERE id = ?",
+            "SELECT id, username, password_hash, is_admin, theme, created_at FROM users WHERE id = ?",
             (user_id,),
         ) as cursor:
             row = await cursor.fetchone()
@@ -124,10 +129,20 @@ async def get_user_by_id(user_id: int) -> Optional[Dict[str, Any]]:
 async def get_all_users() -> List[Dict[str, Any]]:
     async with get_db() as db:
         async with db.execute(
-            "SELECT id, username, is_admin, created_at FROM users ORDER BY id ASC"
+            "SELECT id, username, is_admin, theme, created_at FROM users ORDER BY id ASC"
         ) as cursor:
             rows = await cursor.fetchall()
             return [dict(r) for r in rows]
+
+
+async def update_user_theme(user_id: int, theme: str) -> bool:
+    async with get_db() as db:
+        cursor = await db.execute(
+            "UPDATE users SET theme = ? WHERE id = ?",
+            (theme, user_id),
+        )
+        await db.commit()
+        return cursor.rowcount > 0
 
 
 async def delete_user_by_id(user_id: int) -> bool:

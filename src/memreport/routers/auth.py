@@ -2,7 +2,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Response, Request, status
 
 from memreport.config import settings
-from memreport.models import UserCreate, UserUpdate, UserResponse, Token
+from memreport.models import UserCreate, UserUpdate, UserResponse, Token, ThemeUpdateRequest
 from memreport.database import (
     create_user,
     get_user_by_username,
@@ -10,6 +10,7 @@ from memreport.database import (
     get_all_users,
     delete_user_by_id,
     update_user,
+    update_user_theme,
 )
 from memreport.auth import (
     hash_password,
@@ -146,8 +147,19 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         id=current_user["id"],
         username=current_user["username"],
         is_admin=is_admin,
+        theme=current_user.get("theme") or "dark",
         created_at=current_user["created_at"],
     )
+
+
+@router.put("/me/theme")
+async def update_my_theme(
+    theme_req: ThemeUpdateRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Save user preferred theme (light/dark)."""
+    await update_user_theme(current_user["id"], theme_req.theme)
+    return {"status": "ok", "theme": theme_req.theme}
 
 
 @router.put("/me", response_model=UserResponse)
@@ -206,6 +218,7 @@ async def update_profile(
     return UserResponse(
         id=updated["id"],
         username=updated["username"],
-        is_admin=is_admin,
+        is_admin=bool(updated.get("is_admin")),
+        theme=updated.get("theme") or "dark",
         created_at=updated["created_at"],
     )

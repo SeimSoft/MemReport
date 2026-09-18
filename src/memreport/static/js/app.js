@@ -82,6 +82,7 @@ async function loadReportsList() {
 
     document.getElementById('reports-count').textContent = list.length;
     renderSidebarReportsList(list);
+    updateHeaderNavButtons();
   } catch (err) {
     console.error('Error loading reports:', err);
   }
@@ -246,6 +247,7 @@ function onYearSelectChange(newYear) {
 
 function jumpToToday() {
   currentDate = new Date();
+  switchMainView('report');
   selectDate(formatDate(currentDate));
 }
 
@@ -298,10 +300,79 @@ async function selectDate(dateStr) {
   // Update active item in sidebar
   document.querySelectorAll('.report-item').forEach(el => el.classList.remove('active'));
   const activeItem = document.getElementById(`report-item-${dateStr}`);
-  if (activeItem) activeItem.classList.add('active');
+  if (activeItem) {
+    activeItem.classList.add('active');
+    try {
+      activeItem.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    } catch (e) {}
+  }
 
   if (isEditMode) cancelEditMode();
+  updateHeaderNavButtons();
   await loadReportForDate(dateStr);
+}
+
+// --- Chronological Report Navigation (< >) ---
+
+function getSortedReportDates() {
+  return Object.keys(reportsMap).sort();
+}
+
+function updateHeaderNavButtons() {
+  const prevBtn = document.getElementById('btn-report-prev');
+  const nextBtn = document.getElementById('btn-report-next');
+  if (!prevBtn || !nextBtn) return;
+
+  const dates = getSortedReportDates();
+  if (!dates.length) {
+    prevBtn.disabled = true;
+    nextBtn.disabled = true;
+    prevBtn.title = 'Keine Berichte vorhanden';
+    nextBtn.title = 'Keine Berichte vorhanden';
+    return;
+  }
+
+  const currentDateStr = selectedDateStr || formatDate(currentDate);
+  const olderDates = dates.filter(d => d < currentDateStr);
+  const newerDates = dates.filter(d => d > currentDateStr);
+
+  if (olderDates.length > 0) {
+    prevBtn.disabled = false;
+    const target = olderDates[olderDates.length - 1];
+    prevBtn.title = `Vorheriger Bericht (${formatDateGerman(target)})`;
+  } else {
+    prevBtn.disabled = true;
+    prevBtn.title = 'Kein früherer Bericht vorhanden';
+  }
+
+  if (newerDates.length > 0) {
+    nextBtn.disabled = false;
+    const target = newerDates[0];
+    nextBtn.title = `Nächster Bericht (${formatDateGerman(target)})`;
+  } else {
+    nextBtn.disabled = true;
+    nextBtn.title = 'Kein späterer Bericht vorhanden';
+  }
+}
+
+function navigateReport(direction) {
+  const dates = getSortedReportDates();
+  if (!dates.length) return;
+
+  const currentDateStr = selectedDateStr || formatDate(currentDate);
+  if (direction < 0) {
+    const olderDates = dates.filter(d => d < currentDateStr);
+    if (olderDates.length > 0) {
+      const targetDate = olderDates[olderDates.length - 1];
+      selectDate(targetDate);
+    }
+  } else if (direction > 0) {
+    const newerDates = dates.filter(d => d > currentDateStr);
+    if (newerDates.length > 0) {
+      const targetDate = newerDates[0];
+      selectDate(targetDate);
+    }
+  }
 }
 
 // --- Report Loading & Rendering ---
@@ -1367,6 +1438,14 @@ function openProfileModal() {
   alertBox.classList.add('hidden');
   alertBox.textContent = '';
 
+  const currentTheme = document.documentElement.classList.contains('light') ? 'light' : 'dark';
+  const darkRadio = document.getElementById('profile-theme-dark');
+  const lightRadio = document.getElementById('profile-theme-light');
+  if (darkRadio && lightRadio) {
+    if (currentTheme === 'light') lightRadio.checked = true;
+    else darkRadio.checked = true;
+  }
+
   document.getElementById('modal-profile').classList.remove('hidden');
 }
 
@@ -1631,12 +1710,23 @@ function renderInteractiveComponents(container) {
 
 // --- Theme Switcher (Light / Dark) ---
 
-function initTheme() {
+async function initTheme() {
   let theme = 'dark';
   try {
     theme = localStorage.getItem('memreport-theme') || 'dark';
   } catch (e) {}
   applyTheme(theme);
+
+  // Sync with user profile from backend
+  try {
+    const res = await fetch('/api/auth/me');
+    if (res.ok) {
+      const user = await res.json();
+      if (user.theme && user.theme !== theme) {
+        applyTheme(user.theme);
+      }
+    }
+  } catch (e) {}
 }
 
 function applyTheme(theme) {
@@ -1663,15 +1753,33 @@ function applyTheme(theme) {
     localStorage.setItem('memreport-theme', theme);
   } catch (e) {}
 
+  const darkRadio = document.getElementById('profile-theme-dark');
+  const lightRadio = document.getElementById('profile-theme-light');
+  if (darkRadio && lightRadio) {
+    if (theme === 'light') lightRadio.checked = true;
+    else darkRadio.checked = true;
+  }
+
   if (window.mapInstance) {
     window.mapInstance.invalidateSize();
   }
 }
 
+function setTheme(theme) {
+  if (theme !== 'light' && theme !== 'dark') return;
+  applyTheme(theme);
+  // Persist to user profile backend
+  fetch('/api/auth/me/theme', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ theme })
+  }).catch(err => console.debug('Could not save theme to profile:', err));
+}
+
 function toggleTheme() {
   const currentTheme = document.documentElement.classList.contains('light') ? 'light' : 'dark';
   const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-  applyTheme(newTheme);
+  setTheme(newTheme);
 }
 
 function toggleProfileDropdown(event) {

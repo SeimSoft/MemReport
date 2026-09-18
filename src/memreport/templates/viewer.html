@@ -119,8 +119,14 @@
           <!-- Dynamically populated days -->
         </div>
 
+        <button type="button" class="btn-calendar-today" id="btn-calendar-today" onclick="jumpToToday()" title="Zum heutigen Tag springen">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+          <span>Heute</span>
+        </button>
+
         <div class="calendar-footer">
-          <button class="btn-link text-xs" onclick="jumpToToday()">Heute auswählen</button>
           <div class="calendar-legend">
             <span class="legend-item"><span class="legend-dot report-dot"></span> Bericht</span>
             <span class="legend-item"><span class="legend-dot like-dot"></span> Favorit</span>
@@ -245,6 +251,13 @@
       <div id="pane-report" class="main-pane active">
         <!-- Slim Date Header in Main Workspace -->
         <div class="report-header-bar">
+          <!-- Vorheriger Bericht (<) Button links -->
+          <button id="btn-report-prev" class="header-nav-btn" onclick="navigateReport(-1)" title="Vorheriger Bericht (chronologisch)">
+            <svg width="20" height="20" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
+            </svg>
+          </button>
+
           <div class="toolbar-date-group">
             <h2 id="current-date-heading" class="current-date-title">Lade...</h2>
             <div id="location-badge-container" class="location-badge" onclick="openLocationModal()" title="GPS-Standort bearbeiten">
@@ -273,6 +286,13 @@
               ❤️
             </span>
           </div>
+
+          <!-- Nächster Bericht (>) Button rechts -->
+          <button id="btn-report-next" class="header-nav-btn" onclick="navigateReport(1)" title="Nächster Bericht (chronologisch)">
+            <svg width="20" height="20" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/>
+            </svg>
+          </button>
         </div>
 
         <!-- Viewer Container -->
@@ -523,6 +543,20 @@
         <div class="form-group">
           <label class="form-label" for="profile-username">Benutzername</label>
           <input type="text" id="profile-username" class="form-input" required minlength="2" maxlength="50" autocomplete="username" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Erscheinungsbild (Theme)</label>
+          <div class="flex gap-4 items-center mt-1.5">
+            <label class="inline-flex items-center gap-2 cursor-pointer text-sm font-medium">
+              <input type="radio" name="profile-theme-choice" id="profile-theme-dark" value="dark" onchange="setTheme('dark')" class="text-primary focus:ring-primary" />
+              <span>🌙 Dunkel</span>
+            </label>
+            <label class="inline-flex items-center gap-2 cursor-pointer text-sm font-medium">
+              <input type="radio" name="profile-theme-choice" id="profile-theme-light" value="light" onchange="setTheme('light')" class="text-primary focus:ring-primary" />
+              <span>☀️ Hell</span>
+            </label>
+          </div>
         </div>
 
         <div class="profile-section-divider">

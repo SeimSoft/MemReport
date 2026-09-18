@@ -31,7 +31,12 @@ class UserUpdate(BaseModel):
 class UserResponse(UserBase):
     id: int
     is_admin: bool = False
+    theme: Optional[str] = "dark"
     created_at: str
+
+
+class ThemeUpdateRequest(BaseModel):
+    theme: str = Field(..., pattern=r"^(light|dark)$")
 
 
 class Token(BaseModel):
